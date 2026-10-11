@@ -92,6 +92,7 @@ async fn prod_conn(generation: u64) -> LiveConnection {
         "Prod".into(),
         EnvironmentTag::Production,
         generation,
+        None,
     )
 }
 

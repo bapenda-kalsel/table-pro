@@ -1,6 +1,7 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
   import { theme } from '$lib/stores/theme.svelte';
+  import { checkForUpdates } from '$lib/stores/updater';
   import { getLocale, locales, setLocale, t } from '$lib/i18n/i18n.svelte';
   import {
     Database,
@@ -15,6 +16,7 @@
     Languages,
     Sun,
     Moon,
+    ArrowDownToLine,
   } from 'lucide-svelte';
 
   function toggleLanguage() {
@@ -140,6 +142,15 @@
       title={t('titlebar.console_hint')}
     >
       <Terminal class="w-3.5 h-3.5" />
+    </button>
+
+    <!-- Update Check -->
+    <button
+      class="p-1.5 rounded hover:bg-hover text-muted hover:text-fg transition-colors border border-transparent hover:border-strong/40"
+      onclick={() => checkForUpdates(true)}
+      title={t('titlebar.update_hint')}
+    >
+      <ArrowDownToLine class="w-3.5 h-3.5 text-sky-400" />
     </button>
 
     <!-- Theme Toggle (Dark / Light) -->

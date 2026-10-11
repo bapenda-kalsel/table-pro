@@ -19,6 +19,7 @@
   import ImportCsvModal from '$lib/components/modals/ImportCsvModal.svelte';
   import CreateTableModal from '$lib/components/modals/CreateTableModal.svelte';
   import AiSettingsModal from '$lib/components/modals/AiSettingsModal.svelte';
+  import { checkForUpdates } from '$lib/stores/updater';
   import ConfirmDialog from '$lib/components/modals/ConfirmDialog.svelte';
   import Toasts from '$lib/components/chrome/Toasts.svelte';
   import { Plus, Database, Terminal } from 'lucide-svelte';
@@ -26,6 +27,8 @@
 
   onMount(async () => {
     await workspace.init();
+    // Silent background check; failures (offline) are ignored.
+    checkForUpdates(false);
   });
 
   let activeTab = $derived(
