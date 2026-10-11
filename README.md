@@ -81,9 +81,9 @@
 
 - [Rust](https://rustup.rs) (stable)
 - [Node.js](https://nodejs.org) 18+ and [pnpm](https://pnpm.io)
-- [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your platform (Xcode CLT on macOS, WebView2 on Windows, webkit2gtk on Linux)
+- Platform-specific requirements below
 
-### Build from source
+### Run from source
 
 ```bash
 git clone https://github.com/bapenda-kalsel/table-pro.git
@@ -95,9 +95,62 @@ pnpm dev
 
 # Full native app
 pnpm tauri dev
+```
 
-# Production build → native bundle in src-tauri/target/release/bundle/
+## Building Installers
+
+Tauri compiles native binaries, so **build on each target OS** — or use the included [GitHub Actions workflow](.github/workflows/release.yml), which builds all three platforms and drafts a release whenever you push a `v*` tag.
+
+```bash
+pnpm tauri build   # output → src-tauri/target/release/bundle/
+```
+
+### macOS
+
+**Prerequisite:** Xcode Command Line Tools
+
+```bash
+xcode-select --install
 pnpm tauri build
+```
+
+Output: `bundle/macos/TablePro.app` and `bundle/dmg/TablePro_*.dmg`
+
+> Unsigned builds trigger Gatekeeper — users can right-click → **Open** to bypass. For public distribution, sign with an Apple Developer ID certificate (`APPLE_CERTIFICATE`, `APPLE_SIGNING_IDENTITY` secrets in CI).
+
+### Windows
+
+**Prerequisites:**
+- [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (Desktop development with C++)
+- WebView2 Runtime — preinstalled on Windows 11 and most Windows 10 systems
+
+```powershell
+pnpm tauri build
+```
+
+Output: `bundle/nsis/TablePro_*-setup.exe` and `bundle/msi/TablePro_*_en-US.msi`
+
+### Linux (Debian/Ubuntu)
+
+**Prerequisites:**
+
+```bash
+sudo apt-get update
+sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+pnpm tauri build
+```
+
+Output: `bundle/deb/*.deb` and `bundle/appimage/*.AppImage`
+
+For other distros see the [Tauri Linux prerequisites](https://v2.tauri.app/start/prerequisites/#linux).
+
+### Releasing via CI (recommended)
+
+The workflow at `.github/workflows/release.yml` builds macOS, Linux, and Windows installers in parallel and attaches them to a draft GitHub Release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
 ## Development
@@ -153,7 +206,23 @@ src-tauri/
 
 ## Contributing
 
-Contributions are welcome! Feel free to open an issue for bugs/feature requests, or submit a pull request. Please make sure `pnpm check`, `pnpm test`, and `cargo test` pass before submitting.
+Contributions are welcome! Feel free to open an issue for bugs/feature requests, or submit a pull request.
+
+### Branching
+
+| Branch | Purpose |
+|---|---|
+| `main` | Stable, release-ready code. Only merge from `develop` when cutting a release. |
+| `develop` | Active development — base all feature branches here. |
+| `feature/*`, `fix/*` | Short-lived branches, merged back into `develop` via PR. |
+
+```bash
+git checkout develop
+git checkout -b feature/my-feature
+# ... work, then open a PR targeting develop
+```
+
+Please make sure `pnpm check`, `pnpm test`, and `cargo test` pass before submitting.
 
 ## License
 
