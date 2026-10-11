@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TablePro - Open-source native database client</title>
+  <meta name="description" content="TablePro is a free, open-source desktop database client for SQLite, MySQL, and PostgreSQL. Built with Tauri 2, SvelteKit 5, and Rust." />
+  <meta property="og:title" content="TablePro" />
+  <meta property="og:description" content="Open-source native database client for SQLite, MySQL, and PostgreSQL." />
+  <meta property="og:image" content="https://bapenda-kalsel.github.io/table-pro/icon.png" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="icon.png" />
+  <style>
+    :root {
+      --bg: #0a0a0b;
+      --bg-raised: #131316;
+      --bg-tint: rgba(52, 211, 153, 0.07);
+      --border: #26262b;
+      --border-accent: rgba(52, 211, 153, 0.35);
+      --text: #e4e4e7;
+      --text-dim: #a1a1aa;
+      --text-faint: #71717a;
+      --accent: #34d399;
+      --accent-ink: #052e1f;
+      --radius-card: 14px;
+      --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+    img { display: block; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+    /* ---------- Nav ---------- */
+    nav {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(10, 10, 11, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 15px; }
+    .brand img { width: 26px; height: 26px; }
+    .nav-links { display: flex; align-items: center; gap: 28px; font-size: 14px; color: var(--text-dim); }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links .gh {
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 7px 16px;
+      display: inline-flex; align-items: center; gap: 8px;
+      transition: border-color 0.2s;
+    }
+    .nav-links .gh:hover { border-color: var(--border-accent); }
+    .nav-links .gh img { width: 16px; height: 16px; }
+
+    /* ---------- Hero ---------- */
+    .hero {
+      display: grid; grid-template-columns: 1.15fr 0.85fr;
+      align-items: center; gap: 48px;
+      padding-top: 96px; padding-bottom: 80px;
+    }
+    .hero h1 {
+      font-size: clamp(2.4rem, 5vw, 3.6rem);
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      font-weight: 700;
+    }
+    .hero h1 em { font-style: normal; color: var(--accent); }
+    .hero p {
+      margin-top: 20px;
+      font-size: 1.1rem;
+      color: var(--text-dim);
+      max-width: 30rem;
+    }
+    .cta-row { margin-top: 32px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      border-radius: 999px;
+      padding: 12px 26px;
+      font-size: 15px; font-weight: 600;
+      transition: transform 0.15s, box-shadow 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--accent); color: var(--accent-ink); }
+    .btn-primary:hover { box-shadow: 0 4px 24px rgba(52, 211, 153, 0.3); }
+    .btn-ghost { border: 1px solid var(--border); color: var(--text); }
+    .btn-ghost:hover { border-color: var(--border-accent); }
+    .hero-icon {
+      width: min(100%, 340px);
+      justify-self: center;
+      filter: drop-shadow(0 24px 60px rgba(52, 211, 153, 0.15));
+    }
+
+    /* ---------- Sections ---------- */
+    section { padding: 72px 0; border-top: 1px solid var(--border); }
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+    h2 {
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      letter-spacing: -0.02em;
+      font-weight: 650;
+      margin-bottom: 40px;
+    }
+
+    /* ---------- Engines ---------- */
+    .engines { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .engine {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 28px;
+      background: var(--bg-raised);
+      display: flex; flex-direction: column; gap: 6px;
+      transition: border-color 0.2s;
+    }
+    .engine:hover { border-color: var(--border-accent); }
+    .engine img { width: 34px; height: 34px; margin-bottom: 10px; }
+    .engine strong { font-size: 16px; font-weight: 600; }
+    .engine span { font-size: 13.5px; color: var(--text-faint); }
+
+    /* ---------- Features bento ---------- */
+    .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+    .cell {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 28px;
+      background: var(--bg-raised);
+      transition: border-color 0.2s;
+    }
+    .cell:hover { border-color: var(--border-accent); }
+    .cell h3 { font-size: 16.5px; font-weight: 600; margin-bottom: 8px; }
+    .cell p { font-size: 14px; color: var(--text-dim); }
+    .c-a { grid-column: span 4; background: var(--bg-tint); border-color: var(--border-accent); }
+    .c-b { grid-column: span 2; }
+    .c-c, .c-d, .c-e { grid-column: span 2; }
+    .c-f { grid-column: span 6; }
+    .c-f p { max-width: 60ch; }
+
+    /* ---------- Staged changes split ---------- */
+    .split { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 48px; align-items: center; }
+    .split h2 { margin-bottom: 16px; }
+    .split .lead { color: var(--text-dim); max-width: 42ch; }
+    .split .lead + .lead { margin-top: 12px; }
+    pre {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 24px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text-dim);
+    }
+    pre .cm { color: var(--text-faint); }
+    pre .kw { color: var(--accent); }
+
+    /* ---------- Download ---------- */
+    .dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
+    .dl a {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 24px 28px;
+      background: var(--bg-raised);
+      display: flex; align-items: center; justify-content: space-between;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    .dl a:hover { border-color: var(--border-accent); }
+    .dl a:active { transform: translateY(1px); }
+    .dl strong { font-size: 15px; font-weight: 600; display: block; }
+    .dl span { font-size: 13px; color: var(--text-faint); }
+    .dl .arr { color: var(--accent); font-size: 18px; }
+    .build-line {
+      font-family: var(--mono); font-size: 13.5px; color: var(--text-faint);
+    }
+    .build-line code { color: var(--text-dim); }
+
+    /* ---------- Footer ---------- */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+      font-size: 13.5px;
+      color: var(--text-faint);
+      display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    footer a { color: var(--text-dim); }
+    footer a:hover { color: var(--accent); }
+
+    /* ---------- Reveal ---------- */
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .reveal { opacity: 1; transform: none; transition: none; }
+    }
+
+    /* ---------- Mobile ---------- */
+    @media (max-width: 768px) {
+      .hero { grid-template-columns: 1fr; padding-top: 56px; padding-bottom: 56px; }
+      .hero-icon { width: 180px; order: -1; justify-self: start; }
+      .engines, .dl { grid-template-columns: 1fr; }
+      .bento { grid-template-columns: 1fr; }
+      .c-a, .c-b, .c-c, .c-d, .c-e, .c-f { grid-column: span 1; }
+      .split { grid-template-columns: 1fr; gap: 28px; }
+      .nav-links { gap: 18px; }
+      .nav-links .hide-sm { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-inner">
+    <a class="brand" href="#"><img src="icon.png" alt="TablePro logo" />TablePro</a>
+    <div class="nav-links">
+      <a href="#engines" class="hide-sm">Engines</a>
+      <a href="#features" class="hide-sm">Features</a>
+      <a href="#download">Download</a>
+      <a class="gh" href="https://github.com/bapenda-kalsel/table-pro">
+        <img src="https://cdn.simpleicons.org/github/e4e4e7" alt="" />GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<header class="wrap hero">
+  <div>
+    <h1>A native database client, <em>free forever.</em></h1>
+    <p>SQLite, MySQL, and PostgreSQL in one fast desktop app. Open source, no subscription.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://github.com/bapenda-kalsel/table-pro/releases/latest">Download</a>
+      <a class="btn btn-ghost" href="https://github.com/bapenda-kalsel/table-pro">View on GitHub</a>
+    </div>
+  </div>
+  <img class="hero-icon" src="icon.png" alt="TablePro app icon" />
+</header>
+
+<section id="engines">
+  <div class="wrap">
+    <h2>Three engines, one driver interface</h2>
+    <div class="engines reveal">
+      <div class="engine">
+        <img src="https://cdn.simpleicons.org/sqlite/e4e4e7" alt="SQLite" />
+        <strong>SQLite</strong>
+        <span>Zero-setup local files and in-memory databases</span>
+      </div>
+      <div class="engine">
+        <img src="https://cdn.simpleicons.org/mysql/e4e4e7" alt="MySQL" />
+        <strong>MySQL / MariaDB</strong>
+        <span>Full browsing, editing, and maintenance over TCP</span>
+      </div>
+      <div class="engine">
+        <img src="https://cdn.simpleicons.org/postgresql/e4e4e7" alt="PostgreSQL" />
+        <strong>PostgreSQL</strong>
+        <span>Public schema support with explain plans and DDL</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <p class="eyebrow">Features</p>
+    <h2>Built like a workbench, not a toy</h2>
+    <div class="bento">
+      <div class="cell c-a reveal">
+        <h3>Staged changes workflow</h3>
+        <p>Inline edits, inserts, and deletes are buffered locally with color-coded highlighting. Review the generated SQL in a diff modal, then commit everything in one atomic transaction.</p>
+      </div>
+      <div class="cell c-b reveal">
+        <h3>Keychain security</h3>
+        <p>Passwords live in the OS keychain, never in config files. Production-tagged connections require confirmation for writes.</p>
+      </div>
+      <div class="cell c-c reveal">
+        <h3>SQL editor</h3>
+        <p>CodeMirror 6 with live schema autocomplete, explain plans, and result export.</p>
+      </div>
+      <div class="cell c-d reveal">
+        <h3>ER diagram</h3>
+        <p>Reverse-engineers every table and foreign key into a draggable visual map.</p>
+      </div>
+      <div class="cell c-e reveal">
+        <h3>Audit trail</h3>
+        <p>Every query persisted with stats, filtering, and CSV or JSON export.</p>
+      </div>
+      <div class="cell c-f reveal">
+        <h3>Power tools included</h3>
+        <p>Global text search across all columns, CSV import, VACUUM and backup maintenance, saved snippets, visual table designer, and a quick switcher. The UI speaks English and Bahasa Indonesia.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap split">
+    <div>
+      <h2>See the SQL before it runs</h2>
+      <p class="lead">Staged edits are translated into real statements you can read first. Nothing hidden, nothing surprising.</p>
+      <p class="lead">Approve the batch and it commits atomically. Reject it and your database stays untouched.</p>
+    </div>
+    <pre><span class="cm">-- staged changes on employees (3 operations)</span>
+<span class="kw">BEGIN TRANSACTION;</span>
+
+<span class="kw">UPDATE</span> employees
+<span class="kw">SET</span> salary = 7200
+<span class="kw">WHERE</span> id = 42;
+
+<span class="kw">INSERT INTO</span> employees (name, role)
+<span class="kw">VALUES</span> ('Ayu Pratama', 'Analyst');
+
+<span class="kw">DELETE FROM</span> employees <span class="kw">WHERE</span> id = 7;
+
+<span class="kw">COMMIT;</span></pre>
+  </div>
+</section>
+
+<section id="download">
+  <div class="wrap">
+    <h2>Download</h2>
+    <div class="dl reveal">
+      <a href="https://github.com/bapenda-kalsel/table-pro/releases/latest">
+        <div><strong>macOS</strong><span>.dmg / .app</span></div>
+        <span class="arr">&rarr;</span>
+      </a>
+      <a href="https://github.com/bapenda-kalsel/table-pro/releases/latest">
+        <div><strong>Windows</strong><span>.msi / setup .exe</span></div>
+        <span class="arr">&rarr;</span>
+      </a>
+      <a href="https://github.com/bapenda-kalsel/table-pro/releases/latest">
+        <div><strong>Linux</strong><span>.deb / .AppImage</span></div>
+        <span class="arr">&rarr;</span>
+      </a>
+    </div>
+    <p class="build-line">or build from source: <code>git clone https://github.com/bapenda-kalsel/table-pro && cd table-pro && pnpm install && pnpm tauri build</code></p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap" style="display: contents;">
+    <span>MIT License &middot; Badan Pendapatan Daerah Provinsi Kalimantan Selatan</span>
+    <span>
+      <a href="https://github.com/bapenda-kalsel/table-pro">Source</a> &middot;
+      <a href="https://github.com/bapenda-kalsel/table-pro/issues">Issues</a> &middot;
+      <a href="https://github.com/bapenda-kalsel/table-pro/releases">Releases</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.15 });
+    document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+  } else {
+    document.querySelectorAll('.reveal').forEach((el) => el.classList.add('in'));
+  }
+</script>
+
+</body>
+</html>
