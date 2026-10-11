@@ -1,9 +1,11 @@
-use super::common::{self, Dialect, ParamStyle};
+use super::common::{self, staged, Dialect, ParamStyle};
+use super::factory::TlsConfig;
 use super::DatabaseDriver;
+use crate::errors::{AppError, AppResult, ResultExt};
 use crate::models::{
-    DatabaseStats, ExplainResult, ExplainStep, ExportResult, ForeignKeyInfo, FullTableSchema,
-    GlobalSearchResult, IndexInfo, QueryResultData, StagedCommitPayload, StagedDiffSummary,
-    TableColumnMetadata, TableInfo, TriggerInfo,
+    DatabaseStats, ExplainResult, ExplainStep, ExportResult, ForeignKeyInfo, ForeignKeySpec,
+    FullTableSchema, GlobalSearchResult, IndexInfo, QueryResultData, StagedCommitPayload,
+    StagedDiffSummary, TableColumnMetadata, TableInfo, TriggerInfo,
 };
 use async_trait::async_trait;
 use serde_json::{json, Map, Value};
@@ -43,27 +45,64 @@ fn to_hex(b: &[u8]) -> String {
     }
 }
 
+/// Bind a JSON scalar to a MySQL query placeholder.
+fn bind_json<'q>(
+    q: sqlx::query::Query<'q, sqlx::MySql, sqlx::mysql::MySqlArguments>,
+    v: &'q serde_json::Value,
+) -> sqlx::query::Query<'q, sqlx::MySql, sqlx::mysql::MySqlArguments> {
+    match v {
+        serde_json::Value::Null => q.bind(None::<String>),
+        serde_json::Value::Bool(b) => q.bind(*b),
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                q.bind(i)
+            } else {
+                q.bind(n.as_f64().unwrap_or(0.0))
+            }
+        }
+        serde_json::Value::String(s) => q.bind(s.as_str()),
+        // Rejected by staged-plan validation; render as text if reached.
+        other => q.bind(other.to_string()),
+    }
+}
+
 impl MysqlDriver {
     pub async fn new(
         host: &str,
         port: u16,
         database: &str,
         username: &str,
-        password: &str,
-    ) -> Result<Self, String> {
-        let opts = MySqlConnectOptions::new()
+        password: Option<&str>,
+        tls: &TlsConfig,
+    ) -> AppResult<Self> {
+        use super::factory::TlsMode;
+        use sqlx::mysql::MySqlSslMode;
+
+        let mut opts = MySqlConnectOptions::new()
             .host(host)
             .port(port)
             .username(username)
-            .password(password)
-            .database(database);
+            .database(database)
+            .ssl_mode(match tls.mode {
+                TlsMode::Disabled => MySqlSslMode::Disabled,
+                TlsMode::Prefer => MySqlSslMode::Preferred,
+                TlsMode::Required => MySqlSslMode::Required,
+                TlsMode::VerifyCa => MySqlSslMode::VerifyCa,
+                TlsMode::VerifyFull => MySqlSslMode::VerifyIdentity,
+            });
+        if let Some(pw) = password {
+            opts = opts.password(pw);
+        }
+        if let Some(ca) = &tls.ca_cert_path {
+            opts = opts.ssl_ca(ca);
+        }
 
         let pool = MySqlPoolOptions::new()
             .max_connections(5)
             .acquire_timeout(Duration::from_secs(10))
             .connect_with(opts)
             .await
-            .map_err(|e| format!("MySQL connection failed: {}", e))?;
+            .map_err(AppError::from)?;
 
         Ok(Self {
             pool,
@@ -71,6 +110,47 @@ impl MysqlDriver {
             host: host.to_string(),
             port,
         })
+    }
+
+    /// Staged commit is only atomic on transactional engines. Refuse
+    /// non-transactional storage (e.g. MyISAM) rather than promise rollback
+    /// the engine cannot provide.
+    async fn require_transactional_table(&self, table: &str) -> AppResult<()> {
+        let row = sqlx::query(
+            "SELECT ENGINE FROM information_schema.TABLES \
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
+        )
+        .bind(table)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(AppError::from)?;
+
+        let engine = row
+            .and_then(|r| r.try_get::<String, _>("ENGINE").ok())
+            .ok_or_else(|| AppError::not_found(format!("Table '{}' not found", table)))?;
+
+        if !engine.eq_ignore_ascii_case("innodb") {
+            return Err(AppError::unsupported(format!(
+                "Staged commit requires a transactional engine — table '{}' uses {}",
+                table, engine
+            )));
+        }
+        Ok(())
+    }
+
+    /// Validate staged payload against live metadata and build the bound plan.
+    async fn staged_plan(
+        &self,
+        payload: &StagedCommitPayload,
+    ) -> AppResult<Vec<staged::BoundStatement>> {
+        let cols = self.get_table_schema(&payload.table_name).await?;
+        let pk: Vec<String> = cols
+            .iter()
+            .filter(|c| c.is_primary_key)
+            .map(|c| c.name.clone())
+            .collect();
+        let all: Vec<String> = cols.iter().map(|c| c.name.clone()).collect();
+        staged::build_staged_plan(Dialect::Backtick, ParamStyle::Question, payload, &pk, &all)
     }
 
     fn value_to_json(row: &MySqlRow, i: usize) -> Value {
@@ -159,16 +239,16 @@ impl MysqlDriver {
 
 #[async_trait]
 impl DatabaseDriver for MysqlDriver {
-    async fn ping(&self) -> Result<f64, String> {
+    async fn ping(&self) -> AppResult<f64> {
         let start = Instant::now();
         sqlx::query("SELECT 1")
             .fetch_one(&self.pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(AppError::from)?;
         Ok(start.elapsed().as_secs_f64() * 1000.0)
     }
 
-    async fn list_tables(&self) -> Result<Vec<TableInfo>, String> {
+    async fn list_tables(&self) -> AppResult<Vec<TableInfo>> {
         let rows = sqlx::query(
             "SELECT TABLE_NAME, TABLE_TYPE, TABLE_ROWS
              FROM information_schema.TABLES
@@ -177,7 +257,7 @@ impl DatabaseDriver for MysqlDriver {
         )
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(AppError::from)?;
 
         Ok(rows
             .iter()
@@ -186,16 +266,13 @@ impl DatabaseDriver for MysqlDriver {
                 TableInfo {
                     name: r.try_get("TABLE_NAME").unwrap_or_default(),
                     table_type: if t == "BASE TABLE" { "table" } else { "view" }.to_string(),
-                    row_count_estimate: r
-                        .try_get::<i64, _>("TABLE_ROWS")
-                        .ok()
-                        .filter(|n| *n >= 0),
+                    row_count_estimate: r.try_get::<i64, _>("TABLE_ROWS").ok().filter(|n| *n >= 0),
                 }
             })
             .collect())
     }
 
-    async fn get_table_schema(&self, table: &str) -> Result<Vec<TableColumnMetadata>, String> {
+    async fn get_table_schema(&self, table: &str) -> AppResult<Vec<TableColumnMetadata>> {
         let rows = sqlx::query(
             "SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT, COLUMN_COMMENT
              FROM information_schema.COLUMNS
@@ -205,7 +282,7 @@ impl DatabaseDriver for MysqlDriver {
         .bind(table)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(AppError::from)?;
 
         Ok(rows
             .iter()
@@ -229,7 +306,7 @@ impl DatabaseDriver for MysqlDriver {
             .collect())
     }
 
-    async fn get_full_schema(&self, table: &str) -> Result<FullTableSchema, String> {
+    async fn get_full_schema(&self, table: &str) -> AppResult<FullTableSchema> {
         let columns = self.get_table_schema(table).await?;
 
         // Indexes
@@ -242,7 +319,7 @@ impl DatabaseDriver for MysqlDriver {
         .bind(table)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(AppError::from)?;
 
         let mut idx_map: BTreeMap<String, IndexInfo> = BTreeMap::new();
         for r in &idx_rows {
@@ -279,7 +356,7 @@ impl DatabaseDriver for MysqlDriver {
         .bind(table)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(AppError::from)?;
 
         let foreign_keys = fk_rows
             .iter()
@@ -307,7 +384,7 @@ impl DatabaseDriver for MysqlDriver {
         .bind(table)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(AppError::from)?;
 
         let triggers = trg_rows
             .iter()
@@ -350,7 +427,7 @@ impl DatabaseDriver for MysqlDriver {
         filter: Option<&str>,
         sort_by: Option<&str>,
         sort_dir: Option<&str>,
-    ) -> Result<QueryResultData, String> {
+    ) -> AppResult<QueryResultData> {
         let start = Instant::now();
         let data_sql = common::table_data_query(
             Dialect::Backtick,
@@ -372,7 +449,7 @@ impl DatabaseDriver for MysqlDriver {
         let rows = sqlx::query(&data_sql)
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(AppError::from)?;
 
         let (columns, column_types) = match rows.first() {
             Some(r) => (
@@ -398,7 +475,7 @@ impl DatabaseDriver for MysqlDriver {
         })
     }
 
-    async fn execute_query(&self, sql: &str) -> Result<QueryResultData, String> {
+    async fn execute_query(&self, sql: &str) -> AppResult<QueryResultData> {
         let start = Instant::now();
         let verb = crate::models::detect_statement_type(sql).to_lowercase();
 
@@ -406,7 +483,7 @@ impl DatabaseDriver for MysqlDriver {
             let rows = sqlx::query(sql)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(|e| e.to_string())?;
+                .map_err(AppError::from)?;
             let (columns, column_types) = match rows.first() {
                 Some(r) => (
                     r.columns().iter().map(|c| c.name().to_string()).collect(),
@@ -426,7 +503,7 @@ impl DatabaseDriver for MysqlDriver {
             let res = sqlx::query(sql)
                 .execute(&self.pool)
                 .await
-                .map_err(|e| e.to_string())?;
+                .map_err(AppError::from)?;
             Ok(QueryResultData {
                 columns: vec!["Affected Rows".to_string()],
                 column_types: vec!["INTEGER".to_string()],
@@ -438,12 +515,12 @@ impl DatabaseDriver for MysqlDriver {
         }
     }
 
-    async fn explain_query(&self, sql: &str) -> Result<ExplainResult, String> {
+    async fn explain_query(&self, sql: &str) -> AppResult<ExplainResult> {
         let explain_sql = format!("EXPLAIN {}", sql.trim_end_matches(';'));
         let rows = sqlx::query(&explain_sql)
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(AppError::from)?;
 
         let mut steps = Vec::new();
         let mut has_full_scan = false;
@@ -496,7 +573,10 @@ impl DatabaseDriver for MysqlDriver {
         }
 
         if temp_btree {
-            warnings.push("Uses temporary table / filesort — consider an index to support ORDER BY/GROUP BY".to_string());
+            warnings.push(
+                "Uses temporary table / filesort — consider an index to support ORDER BY/GROUP BY"
+                    .to_string(),
+            );
         }
 
         Ok(ExplainResult {
@@ -511,60 +591,67 @@ impl DatabaseDriver for MysqlDriver {
     async fn preview_staged_changes(
         &self,
         payload: &StagedCommitPayload,
-    ) -> Result<StagedDiffSummary, String> {
-        Ok(common::preview_staged_sql(Dialect::Backtick, payload))
+    ) -> AppResult<StagedDiffSummary> {
+        let plan = self.staged_plan(payload).await?;
+        Ok(staged::diff_from_plan(payload, &plan))
     }
 
     async fn commit_staged_changes(
         &self,
         payload: StagedCommitPayload,
-    ) -> Result<QueryResultData, String> {
-        let diff = common::preview_staged_sql(Dialect::Backtick, &payload);
+    ) -> AppResult<QueryResultData> {
+        self.require_transactional_table(&payload.table_name)
+            .await?;
+        let plan = self.staged_plan(&payload).await?;
         let start = Instant::now();
 
         let mut tx = self
             .pool
             .begin()
             .await
-            .map_err(|e| format!("Transaction begin failed: {}", e))?;
+            .db_with(|e| format!("Transaction begin failed: {}", e))?;
 
         let mut total_affected = 0;
-        for sql in &diff.generated_sql {
-            let res = sqlx::query(sql)
+        for stmt in &plan {
+            let mut q = sqlx::query(&stmt.sql);
+            for v in &stmt.binds {
+                q = bind_json(q, v);
+            }
+            let res = q
                 .execute(&mut *tx)
                 .await
-                .map_err(|e| format!("Failed executing '{}': {}", sql, e))?;
+                .db_with(|e| format!("Failed executing '{}': {}", stmt.preview, e))?;
             total_affected += res.rows_affected();
         }
 
         tx.commit()
             .await
-            .map_err(|e| format!("Transaction commit failed: {}", e))?;
+            .db_with(|e| format!("Transaction commit failed: {}", e))?;
 
         Ok(QueryResultData {
-            columns: vec!["Committed Statements".to_string(), "Total Affected".to_string()],
+            columns: vec![
+                "Committed Statements".to_string(),
+                "Total Affected".to_string(),
+            ],
             column_types: vec!["INTEGER".to_string(), "INTEGER".to_string()],
-            rows: vec![vec![
-                json!(diff.generated_sql.len()),
-                json!(total_affected),
-            ]],
+            rows: vec![vec![json!(plan.len()), json!(total_affected)]],
             execution_time_ms: start.elapsed().as_secs_f64() * 1000.0,
             affected_rows: total_affected,
             total_rows: 1,
         })
     }
 
-    async fn get_table_ddl(&self, table: &str) -> Result<String, String> {
+    async fn get_table_ddl(&self, table: &str) -> AppResult<String> {
         let row = sqlx::query(&format!("SHOW CREATE TABLE {}", qi_path(table)))
             .fetch_one(&self.pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(AppError::from)?;
         // Column 1 is "Create Table"/"Create View"
         row.try_get::<String, _>(1)
-            .map_err(|e| format!("No DDL for '{}': {}", table, e))
+            .db_with(|e| format!("No DDL for '{}': {}", table, e))
     }
 
-    async fn run_maintenance(&self, action: &str, table: Option<&str>) -> Result<String, String> {
+    async fn run_maintenance(&self, action: &str, table: Option<&str>) -> AppResult<String> {
         // Resolve target list: given table or every base table in this schema.
         let targets: Vec<String> = match table {
             Some(t) => vec![t.to_string()],
@@ -577,7 +664,7 @@ impl DatabaseDriver for MysqlDriver {
                 .collect(),
         };
         if targets.is_empty() {
-            return Err("No tables to operate on".to_string());
+            return Err(AppError::validation("No tables to operate on"));
         }
         let joined = targets.iter().map(|t| qi(t)).collect::<Vec<_>>().join(", ");
 
@@ -587,14 +674,17 @@ impl DatabaseDriver for MysqlDriver {
                 sqlx::query(&format!("OPTIMIZE TABLE {}", joined))
                     .execute(&self.pool)
                     .await
-                    .map_err(|e| e.to_string())?;
-                Ok(format!("OPTIMIZE TABLE completed on {} table(s).", targets.len()))
+                    .map_err(AppError::from)?;
+                Ok(format!(
+                    "OPTIMIZE TABLE completed on {} table(s).",
+                    targets.len()
+                ))
             }
             "integrity_check" => {
                 let rows = sqlx::query(&format!("CHECK TABLE {}", joined))
                     .fetch_all(&self.pool)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(AppError::from)?;
                 let mut msgs = Vec::new();
                 for r in &rows {
                     let m = Self::row_to_map(r);
@@ -608,21 +698,30 @@ impl DatabaseDriver for MysqlDriver {
                 sqlx::query(&format!("ANALYZE TABLE {}", joined))
                     .execute(&self.pool)
                     .await
-                    .map_err(|e| e.to_string())?;
-                Ok(format!("ANALYZE TABLE completed on {} table(s).", targets.len()))
+                    .map_err(AppError::from)?;
+                Ok(format!(
+                    "ANALYZE TABLE completed on {} table(s).",
+                    targets.len()
+                ))
             }
             "reindex" => {
                 sqlx::query(&format!("OPTIMIZE TABLE {}", joined))
                     .execute(&self.pool)
                     .await
-                    .map_err(|e| e.to_string())?;
-                Ok(format!("Tables rebuilt (index reorganization) on {} table(s).", targets.len()))
+                    .map_err(AppError::from)?;
+                Ok(format!(
+                    "Tables rebuilt (index reorganization) on {} table(s).",
+                    targets.len()
+                ))
             }
-            other => Err(format!("Unsupported maintenance action '{}'", other)),
+            other => Err(AppError::unsupported(format!(
+                "Unsupported maintenance action '{}'",
+                other
+            ))),
         }
     }
 
-    async fn search_text_in_database(&self, keyword: &str) -> Result<Vec<GlobalSearchResult>, String> {
+    async fn search_text_in_database(&self, keyword: &str) -> AppResult<Vec<GlobalSearchResult>> {
         let tables = self.list_tables().await?;
         let mut results = Vec::new();
 
@@ -632,7 +731,10 @@ impl DatabaseDriver for MysqlDriver {
                 .iter()
                 .filter(|c| {
                     let d = c.data_type.to_lowercase();
-                    d.contains("char") || d.contains("text") || d.contains("enum") || d.contains("json")
+                    d.contains("char")
+                        || d.contains("text")
+                        || d.contains("enum")
+                        || d.contains("json")
                 })
                 .collect();
 
@@ -668,7 +770,7 @@ impl DatabaseDriver for MysqlDriver {
         format: &str,
         filter: Option<&str>,
         dest_dir: &std::path::Path,
-    ) -> Result<ExportResult, String> {
+    ) -> AppResult<ExportResult> {
         let mut query = format!("SELECT * FROM {}", qi_path(table));
         if let Some(f) = filter {
             if !f.trim().is_empty() {
@@ -678,10 +780,14 @@ impl DatabaseDriver for MysqlDriver {
         let rows = sqlx::query(&query)
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| format!("Export query failed: {}", e))?;
+            .db_with(|e| format!("Export query failed: {}", e))?;
 
         let headers: Vec<String> = if let Some(first) = rows.first() {
-            first.columns().iter().map(|c| c.name().to_string()).collect()
+            first
+                .columns()
+                .iter()
+                .map(|c| c.name().to_string())
+                .collect()
         } else {
             self.get_table_schema(table)
                 .await
@@ -697,7 +803,13 @@ impl DatabaseDriver for MysqlDriver {
         let ts = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
         let safe_table: String = table
             .chars()
-            .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
 
         let bytes = common::export_rows_bytes(
@@ -722,7 +834,8 @@ impl DatabaseDriver for MysqlDriver {
                 _ => "txt",
             }
         ));
-        std::fs::write(&path, &bytes).map_err(|e| format!("Failed writing export: {}", e))?;
+        std::fs::write(&path, &bytes)
+            .map_err(|e| AppError::storage_at(&path, format!("Failed writing export: {}", e)))?;
 
         Ok(ExportResult {
             file_path: path.to_string_lossy().to_string(),
@@ -732,12 +845,16 @@ impl DatabaseDriver for MysqlDriver {
         })
     }
 
-    async fn import_csv(&self, table: &str, file_path: &str) -> Result<u64, String> {
-        let mut rdr = csv::Reader::from_path(file_path)
-            .map_err(|e| format!("Cannot open CSV '{}': {}", file_path, e))?;
+    async fn import_csv(&self, table: &str, file_path: &str) -> AppResult<u64> {
+        let mut rdr = csv::Reader::from_path(file_path).map_err(|e| {
+            AppError::storage_at(
+                std::path::Path::new(file_path),
+                format!("Cannot open CSV: {}", e),
+            )
+        })?;
         let headers: Vec<String> = rdr
             .headers()
-            .map_err(|e| e.to_string())?
+            .map_err(AppError::from)?
             .iter()
             .map(|h| h.trim().to_string())
             .collect();
@@ -746,7 +863,7 @@ impl DatabaseDriver for MysqlDriver {
         sqlx::query(&create_sql)
             .execute(&self.pool)
             .await
-            .map_err(|e| format!("Failed creating table: {}", e))?;
+            .db_with(|e| format!("Failed creating table: {}", e))?;
 
         let insert_sql =
             common::import_insert_sql(Dialect::Backtick, ParamStyle::Question, table, &headers);
@@ -755,11 +872,11 @@ impl DatabaseDriver for MysqlDriver {
             .pool
             .begin()
             .await
-            .map_err(|e| format!("Transaction begin failed: {}", e))?;
+            .db_with(|e| format!("Transaction begin failed: {}", e))?;
 
         let mut count: u64 = 0;
         for record in rdr.records() {
-            let rec = record.map_err(|e| format!("CSV parse error: {}", e))?;
+            let rec = record.db_with(|e| format!("CSV parse error: {}", e))?;
             let mut q = sqlx::query(&insert_sql);
             for i in 0..headers.len() {
                 let v = rec.get(i).unwrap_or("");
@@ -771,22 +888,28 @@ impl DatabaseDriver for MysqlDriver {
             }
             q.execute(&mut *tx)
                 .await
-                .map_err(|e| format!("Import failed at row {}: {}", count + 1, e))?;
+                .db_with(|e| format!("Import failed at row {}: {}", count + 1, e))?;
             count += 1;
         }
 
         tx.commit()
             .await
-            .map_err(|e| format!("Transaction commit failed: {}", e))?;
+            .db_with(|e| format!("Transaction commit failed: {}", e))?;
         Ok(count)
     }
 
-    async fn backup_database(&self, dest_dir: &std::path::Path) -> Result<String, String> {
+    async fn backup_database(&self, dest_dir: &std::path::Path) -> AppResult<String> {
         // MySQL has no in-SQL file backup: produce a logical .sql dump.
         let ts = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
         let base = format!("{}-{}-{}", self.database, self.host, self.port)
             .chars()
-            .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect::<String>();
 
         let mut table_dumps = Vec::new();
@@ -797,7 +920,7 @@ impl DatabaseDriver for MysqlDriver {
                 let rows = sqlx::query(&format!("SELECT * FROM {}", qi(&t.name)))
                     .fetch_all(&self.pool)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(AppError::from)?;
                 let maps: Vec<Map<String, Value>> = rows.iter().map(Self::row_to_map).collect();
                 table_dumps.push((ddl, t.name.clone(), maps));
             } else {
@@ -817,29 +940,33 @@ impl DatabaseDriver for MysqlDriver {
                 "CREATE TRIGGER {} {} {} ON {} FOR EACH ROW {}",
                 r.try_get::<String, _>("TRIGGER_NAME").unwrap_or_default(),
                 r.try_get::<String, _>("ACTION_TIMING").unwrap_or_default(),
-                r.try_get::<String, _>("EVENT_MANIPULATION").unwrap_or_default(),
-                qi(&r.try_get::<String, _>("EVENT_OBJECT_TABLE").unwrap_or_default()),
-                r.try_get::<String, _>("ACTION_STATEMENT").unwrap_or_default(),
+                r.try_get::<String, _>("EVENT_MANIPULATION")
+                    .unwrap_or_default(),
+                qi(&r
+                    .try_get::<String, _>("EVENT_OBJECT_TABLE")
+                    .unwrap_or_default()),
+                r.try_get::<String, _>("ACTION_STATEMENT")
+                    .unwrap_or_default(),
             ));
         }
 
         let content = common::dump_content(Dialect::Backtick, &table_dumps, &extras);
         let mut path = dest_dir.to_path_buf();
         path.push(format!("{}-{}.sql", base, ts));
-        std::fs::write(&path, content).map_err(|e| format!("Backup dump failed: {}", e))?;
+        std::fs::write(&path, content).db_with(|e| format!("Backup dump failed: {}", e))?;
         Ok(path.to_string_lossy().to_string())
     }
 
-    async fn server_version(&self) -> Result<String, String> {
+    async fn server_version(&self) -> AppResult<String> {
         let row = sqlx::query("SELECT VERSION() AS v;")
             .fetch_one(&self.pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(AppError::from)?;
         let v: String = row.try_get("v").unwrap_or_default();
         Ok(format!("MySQL {}", v))
     }
 
-    async fn get_database_stats(&self) -> Result<DatabaseStats, String> {
+    async fn get_database_stats(&self) -> AppResult<DatabaseStats> {
         let row = sqlx::query(
             "SELECT
                 SUM(TABLE_TYPE = 'BASE TABLE') AS tables,
@@ -850,7 +977,7 @@ impl DatabaseDriver for MysqlDriver {
         )
         .fetch_one(&self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(AppError::from)?;
 
         let idx: i64 = sqlx::query(
             "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE();",
@@ -884,14 +1011,21 @@ impl DatabaseDriver for MysqlDriver {
             .unwrap_or(16384);
 
         let bytes: i64 = row.try_get("bytes").unwrap_or(0);
-        let version = self.server_version().await.unwrap_or_else(|_| "MySQL".into());
+        let version = self
+            .server_version()
+            .await
+            .unwrap_or_else(|_| "MySQL".into());
 
         Ok(DatabaseStats {
             driver_name: "MySQL".to_string(),
             version,
             file_path: Some(format!("{}:{}/{}", self.host, self.port, self.database)),
             file_size_bytes: bytes.max(0) as u64,
-            page_count: if page_size > 0 { (bytes / page_size).max(0) as u64 } else { 0 },
+            page_count: if page_size > 0 {
+                (bytes / page_size).max(0) as u64
+            } else {
+                0
+            },
             page_size: page_size.max(0) as u64,
             freelist_pages: 0,
             journal_mode: engine,
@@ -905,31 +1039,17 @@ impl DatabaseDriver for MysqlDriver {
     }
 
     /// MySQL supports `ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY` natively.
-    async fn add_foreign_key(
-        &self,
-        constraint_name: &str,
-        table: &str,
-        column: &str,
-        ref_table: &str,
-        ref_column: &str,
-        on_delete: &str,
-        on_update: &str,
-    ) -> Result<String, String> {
-        let sql = common::add_fk_sql(
-            Dialect::Backtick,
-            constraint_name,
-            table,
-            column,
-            ref_table,
-            ref_column,
-            on_delete,
-            on_update,
-        );
+    async fn add_foreign_key(&self, spec: &ForeignKeySpec) -> AppResult<String> {
+        let sql = common::add_fk_sql(Dialect::Backtick, spec);
         sqlx::query(&sql)
             .execute(&self.pool)
             .await
-            .map_err(|e| format!("ADD FOREIGN KEY failed: {}", e))?;
+            .ctx_db("ADD FOREIGN KEY failed")?;
         Ok(format!("Executed: {}", sql))
+    }
+
+    async fn close(&self) {
+        self.pool.close().await;
     }
 }
 

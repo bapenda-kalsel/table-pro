@@ -11,9 +11,27 @@ import type {
   WorkspaceTab,
 } from '$lib/types';
 import { api } from '$lib/api';
+import { withProdGuard } from '$lib/api/approval';
 import { t } from '$lib/i18n/i18n.svelte';
 import { toasts } from './toast.svelte';
 import { confirmDialog } from './confirm.svelte';
+
+/** Order-insensitive JSON for comparing staged payloads across previews. */
+function canonicalize(value: any): any {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value !== null && typeof value === 'object') {
+    return Object.keys(value)
+      .sort()
+      .reduce((acc: Record<string, any>, k) => {
+        acc[k] = canonicalize(value[k]);
+        return acc;
+      }, {});
+  }
+  return value;
+}
+function canonicalJson(value: any): string {
+  return JSON.stringify(canonicalize(value));
+}
 
 class WorkspaceStore {
   connections = $state<ConnectionProfile[]>([]);
@@ -43,6 +61,7 @@ class WorkspaceStore {
   isQuickSwitcherOpen = $state(false);
   isImportCsvModalOpen = $state(false);
   isCreateTableModalOpen = $state(false);
+  isAiSettingsOpen = $state(false);
 
   // Saved SQL snippets (persisted via vault)
   snippets = $state<Snippet[]>([]);
@@ -69,6 +88,39 @@ class WorkspaceStore {
   >({});
 
   stagedDiff = $state<StagedDiffSummary | null>(null);
+  isCommitting = $state(false);
+  // Exact payload the user reviewed; commit refuses anything different.
+  private reviewPayload: StagedCommitPayload | null = null;
+  // Bumped on every connect/disconnect: async results issued before the
+  // bump are discarded instead of writing into a replaced workspace.
+  private epoch = 0;
+
+  /// Staged mutations or unsaved query drafts that switching/disconnecting
+  /// would silently drop.
+  hasUnsavedWork(): boolean {
+    const staged = Object.values(this.stagedChanges).some(
+      (s) => s.inserts.length + s.updates.length + s.deletes.length > 0
+    );
+    return staged || this.tabs.some((t) => t.isDirty);
+  }
+
+  /// Wipe everything scoped to the previous connection. Only called AFTER
+  /// a new connection is proven live (or on explicit disconnect).
+  private clearWorkspaceState() {
+    this.tables = [];
+    this.activeTable = null;
+    this.tabs = [];
+    this.activeTabId = null;
+    this.stagedChanges = {};
+    this.stagedDiff = null;
+    this.reviewPayload = null;
+    this.reviewTable = null;
+    this.reviewPrimaryKeys = [];
+    this.schemaCache = {};
+    this.erdPositions = {};
+    this.serverVersion = '';
+    this.isCodeReviewModalOpen = false;
+  }
 
   async init() {
     await this.refreshConnections();
@@ -98,19 +150,44 @@ class WorkspaceStore {
 
   /// Returns true when the connection became active — callers can gate UX on it.
   /// `password` optionally bypasses the keychain (fresh from the form).
+  ///
+  /// Switching order matters: confirm unsaved work → attempt target →
+  /// only on success clear the old workspace. Cancelled or failed
+  /// connections leave the previous workspace fully intact.
   async connect(connectionId: string, password?: string): Promise<boolean> {
     const conn = this.connections.find((c) => c.id === connectionId);
     if (!conn) return false;
+    const switching = !!this.activeConnection && this.activeConnection.id !== connectionId;
+
+    if (switching && this.hasUnsavedWork()) {
+      const ok = await confirmDialog.ask({
+        title: t('confirm.switch_conn_title'),
+        message: t('confirm.switch_conn_msg', { name: conn.name }),
+        confirmLabel: t('confirm.switch_conn'),
+        danger: true,
+      });
+      if (!ok) return false;
+    }
 
     this.isConnecting = true;
+    const epoch = ++this.epoch;
     try {
       await api.connectDatabase(connectionId, password);
+      // A newer connect/disconnect started while this one was in flight —
+      // its epoch wins; drop this result instead of corrupting the state.
+      if (epoch !== this.epoch) return false;
+
+      if (switching) this.clearWorkspaceState();
       this.activeConnection = conn;
       this.isConnected = true;
       await this.refreshTables();
       await this.refreshLogs();
       await this.refreshSchemaCache();
-      api.getServerVersion(connectionId).then((v) => (this.serverVersion = v)).catch(() => (this.serverVersion = ''));
+      api.getServerVersion(connectionId).then((v) => {
+        if (this.activeConnection?.id === connectionId) this.serverVersion = v;
+      }).catch(() => {
+        if (this.activeConnection?.id === connectionId) this.serverVersion = '';
+      });
 
       // If no tabs open, open default query tab
       if (this.tabs.length === 0) {
@@ -126,22 +203,31 @@ class WorkspaceStore {
   }
 
   async disconnect() {
-    if (this.activeConnection) {
-      await api.disconnectDatabase(this.activeConnection.id);
+    const conn = this.activeConnection;
+    if (conn && this.hasUnsavedWork()) {
+      const ok = await confirmDialog.ask({
+        title: t('confirm.disconnect_title'),
+        message: t('confirm.disconnect_msg', { name: conn.name }),
+        confirmLabel: t('confirm.disconnect'),
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    this.epoch++; // invalidate every in-flight request against the old session
+    if (conn) {
+      await api.disconnectDatabase(conn.id);
     }
     this.activeConnection = null;
     this.isConnected = false;
-    this.tables = [];
-    this.tabs = [];
-    this.activeTabId = null;
-    this.schemaCache = {};
-    this.serverVersion = '';
+    this.clearWorkspaceState();
     await this.refreshLogs();
   }
 
   async refreshTables() {
-    if (!this.activeConnection) return;
-    this.tables = await api.listTables(this.activeConnection.id);
+    const connId = this.activeConnection?.id;
+    if (!connId) return;
+    const tables = await api.listTables(connId);
+    if (this.activeConnection?.id === connId) this.tables = tables;
   }
 
   // ---- Snippets ----
@@ -168,16 +254,17 @@ class WorkspaceStore {
   /// Fetch every table's columns once so the SQL editor can autocomplete
   /// real table/column names. Refreshed on connect and after DDL-affecting commits.
   async refreshSchemaCache() {
-    if (!this.activeConnection) return;
+    const connId = this.activeConnection?.id;
+    if (!connId) return;
     const cache: Record<string, TableColumnMetadata[]> = {};
     for (const t of this.tables) {
       try {
-        cache[t.name] = await api.getTableSchema(this.activeConnection.id, t.name);
+        cache[t.name] = await api.getTableSchema(connId, t.name);
       } catch {
         cache[t.name] = [];
       }
     }
-    this.schemaCache = cache;
+    if (this.activeConnection?.id === connId) this.schemaCache = cache;
   }
 
   async refreshLogs() {
@@ -194,6 +281,7 @@ class WorkspaceStore {
       id: 'tab-' + Math.random().toString(36).substring(2, 9),
       title: tableName,
       type: 'table',
+      connectionId: this.activeConnection?.id,
       tableName,
     };
     this.tabs.push(newTab);
@@ -212,6 +300,7 @@ class WorkspaceStore {
       id: tabId,
       title: tableName + ' (Structure)',
       type: 'structure',
+      connectionId: this.activeConnection?.id,
       tableName,
     };
     this.tabs.push(newTab);
@@ -224,10 +313,20 @@ class WorkspaceStore {
       id: 'tab-query-' + Math.random().toString(36).substring(2, 9),
       title: t('tab.query', { count }),
       type: 'query',
+      connectionId: this.activeConnection?.id,
       queryText: query,
     };
     this.tabs.push(newTab);
     this.activeTabId = newTab.id;
+  }
+
+  /// Sync a live editor draft into tab state so dirty-work checks (switch
+  /// connection, disconnect, close tab) see the real contents.
+  updateTabDraft(tabId: string, text: string) {
+    const tab = this.tabs.find((t) => t.id === tabId);
+    if (!tab || tab.queryText === text) return;
+    tab.queryText = text;
+    tab.isDirty = true;
   }
 
   openAuditTab() {
@@ -296,7 +395,8 @@ class WorkspaceStore {
   }
 
   /// Confirmation gate before closing tabs: warns (once) when the tabs being
-  /// closed carry staged changes, then runs `apply` if the user confirms.
+  /// closed carry staged changes or unsaved drafts, then runs `apply` if
+  /// the user confirms.
   async requestCloseTabs(tabIds: string[], apply: () => void) {
     const tables = new Set(
       tabIds
@@ -307,10 +407,14 @@ class WorkspaceStore {
       (n, name) => n + this.getTotalStagedCount(name),
       0
     );
-    if (stagedCount > 0) {
+    const dirtyDrafts = tabIds.filter(
+      (id) => this.tabs.find((tb) => tb.id === id)?.isDirty
+    ).length;
+    const riskCount = stagedCount + dirtyDrafts;
+    if (riskCount > 0) {
       const ok = await confirmDialog.ask({
         title: t('confirm.close_staged_title'),
-        message: t('confirm.close_staged_msg', { count: stagedCount }),
+        message: t('confirm.close_staged_msg', { count: riskCount }),
         confirmLabel: t('confirm.close_tab'),
         danger: true,
       });
@@ -369,10 +473,10 @@ class WorkspaceStore {
     return staged.inserts.length + staged.updates.length + staged.deletes.length;
   }
 
-  async previewStaged(table: string, primaryKeys: string[]) {
-    if (!this.activeConnection) return;
+  private buildStagedPayload(table: string, primaryKeys: string[]): StagedCommitPayload | null {
+    if (!this.activeConnection) return null;
     const staged = this.getStagedForTable(table);
-    const payload: StagedCommitPayload = {
+    return {
       connection_id: this.activeConnection.id,
       table_name: table,
       primary_keys: primaryKeys,
@@ -383,7 +487,12 @@ class WorkspaceStore {
       })),
       deletes: staged.deletes,
     };
+  }
 
+  async previewStaged(table: string, primaryKeys: string[]) {
+    const payload = this.buildStagedPayload(table, primaryKeys);
+    if (!payload) return;
+    this.reviewPayload = payload;
     this.reviewTable = table;
     this.reviewPrimaryKeys = primaryKeys;
     this.stagedDiff = await api.previewStagedChanges(payload);
@@ -391,28 +500,31 @@ class WorkspaceStore {
   }
 
   async commitStaged(table: string, primaryKeys: string[]) {
-    if (!this.activeConnection) return;
-    const staged = this.getStagedForTable(table);
-    const payload: StagedCommitPayload = {
-      connection_id: this.activeConnection.id,
-      table_name: table,
-      primary_keys: primaryKeys,
-      inserts: staged.inserts,
-      updates: staged.updates.map((u) => ({
-        primary_key_values: u.pk,
-        updated_fields: u.fields,
-      })),
-      deletes: staged.deletes,
-    };
+    // No implicit retry/double-execution: a second click while a commit is
+    // in flight is ignored, and any payload change after preview forces a
+    // fresh review instead of silently committing different statements.
+    if (this.isCommitting) return;
+    const payload = this.buildStagedPayload(table, primaryKeys);
+    if (!payload) return;
 
+    if (!this.reviewPayload || canonicalJson(payload) !== canonicalJson(this.reviewPayload)) {
+      toasts.info(t('review.stale'));
+      await this.previewStaged(table, primaryKeys);
+      return;
+    }
+
+    this.isCommitting = true;
     try {
-      await api.commitStagedChanges(payload);
+      await withProdGuard((tok) => api.commitStagedChanges(payload, tok));
       this.discardChanges(table);
+      this.reviewPayload = null;
       this.isCodeReviewModalOpen = false;
       await this.refreshTables();
       await this.refreshLogs();
     } catch (err: any) {
       toasts.error(t('common.commit_failed') + err);
+    } finally {
+      this.isCommitting = false;
     }
   }
 
@@ -450,7 +562,7 @@ class WorkspaceStore {
       (2, 3, 'High Performance SMT Engine', 'completed', 32000),
       (3, 5, 'Cloud Infrastructure Setup', 'in_progress', 8500);
     `;
-    await api.executeQuery(this.activeConnection.id, seedSql);
+    await withProdGuard((tok) => api.executeQuery(this.activeConnection!.id, seedSql, tok));
     await this.refreshTables();
   }
 }

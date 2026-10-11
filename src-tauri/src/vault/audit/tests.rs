@@ -32,7 +32,7 @@ fn audit_append_load_roundtrip() {
     let loaded = load_audit_entries_from(&file);
     assert_eq!(loaded.len(), 3);
     assert_eq!(loaded[1].query, "UPDATE t SET x=1");
-    assert_eq!(loaded[2].is_error, true);
+    assert!(loaded[2].is_error);
     assert_eq!(loaded[0].statement_type.as_deref(), Some("SELECT"));
 }
 

@@ -1,6 +1,8 @@
 mod commands;
 mod drivers;
+mod errors;
 mod models;
+mod services;
 mod state;
 mod vault;
 
@@ -46,6 +48,7 @@ pub fn run() {
             // Logs & audit
             commands::audit::get_sql_logs,
             commands::audit::clear_sql_logs,
+            commands::audit::audit_storage_degraded,
             commands::audit::get_audit_log,
             commands::audit::get_audit_stats,
             commands::audit::clear_audit_log,
@@ -54,6 +57,10 @@ pub fn run() {
             commands::snippets::list_snippets,
             commands::snippets::save_snippet,
             commands::snippets::delete_snippet,
+            // AI assistant
+            commands::ai::ai_get_config,
+            commands::ai::ai_save_config,
+            commands::ai::ai_generate,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TablePro application");

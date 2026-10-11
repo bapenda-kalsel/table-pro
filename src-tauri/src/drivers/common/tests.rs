@@ -29,13 +29,159 @@ fn staged_sql_ansi_vs_backtick() {
         }],
         deletes: vec![json!({"id": 2})],
     };
-    let ansi = preview_staged_sql(Dialect::Ansi, &payload);
-    assert!(ansi.generated_sql[0].contains("INSERT INTO \"users\""));
-    assert!(ansi.generated_sql[0].contains("'O''Brien'"));
+    let cols = vec!["id".to_string(), "name".to_string()];
+    let pk = vec!["id".to_string()];
 
-    let bq = preview_staged_sql(Dialect::Backtick, &payload);
-    assert!(bq.generated_sql[1].contains("UPDATE `users` SET `name` = 'x'"));
-    assert!(bq.generated_sql[2].contains("DELETE FROM `users` WHERE `id` = 2"));
+    let ansi = staged::build_staged_plan(Dialect::Ansi, ParamStyle::Question, &payload, &pk, &cols)
+        .unwrap();
+    let diff = staged::diff_from_plan(&payload, &ansi);
+    assert!(diff.generated_sql[0].contains("INSERT INTO \"users\""));
+    assert!(diff.generated_sql[0].contains("'O''Brien'"));
+    // Execution uses placeholders, never the literal preview.
+    assert_eq!(ansi[0].sql, "INSERT INTO \"users\" (\"name\") VALUES (?)");
+    assert_eq!(ansi[0].binds, vec![json!("O'Brien")]);
+    assert_eq!(
+        ansi[1].sql,
+        "UPDATE \"users\" SET \"name\" = ? WHERE \"id\" = ?"
+    );
+    assert_eq!(ansi[1].binds, vec![json!("x"), json!(1)]);
+    assert_eq!(ansi[2].sql, "DELETE FROM \"users\" WHERE \"id\" = ?");
+    assert_eq!(ansi[2].binds, vec![json!(2)]);
+
+    let bq = staged::build_staged_plan(
+        Dialect::Backtick,
+        ParamStyle::Question,
+        &payload,
+        &pk,
+        &cols,
+    )
+    .unwrap();
+    let diff2 = staged::diff_from_plan(&payload, &bq);
+    assert!(diff2.generated_sql[1].contains("UPDATE `users` SET `name` = 'x'"));
+    assert!(diff2.generated_sql[2].contains("DELETE FROM `users` WHERE `id` = 2"));
+}
+
+#[test]
+fn staged_plan_rejects_update_without_pk() {
+    let payload = StagedCommitPayload {
+        connection_id: "c".into(),
+        table_name: "logs".into(),
+        primary_keys: vec![],
+        inserts: vec![],
+        updates: vec![RowUpdatePayload {
+            primary_key_values: json!({"id": 1}),
+            updated_fields: json!({"x": 1}),
+        }],
+        deletes: vec![],
+    };
+    let cols = vec!["id".to_string(), "x".to_string()];
+    let err = staged::build_staged_plan(Dialect::Ansi, ParamStyle::Question, &payload, &[], &cols)
+        .unwrap_err();
+    assert!(err.message().contains("no primary key"));
+}
+
+#[test]
+fn staged_plan_rejects_stale_pk_and_bad_shapes() {
+    let cols = vec!["id".to_string(), "name".to_string()];
+    let pk = vec!["id".to_string()];
+    let base = StagedCommitPayload {
+        connection_id: "c".into(),
+        table_name: "users".into(),
+        primary_keys: vec!["id".into(), "other".into()], // stale schema claim
+        inserts: vec![],
+        updates: vec![RowUpdatePayload {
+            primary_key_values: json!({"id": 1}),
+            updated_fields: json!({"name": "x"}),
+        }],
+        deletes: vec![],
+    };
+    let err = staged::build_staged_plan(Dialect::Ansi, ParamStyle::Question, &base, &pk, &cols)
+        .unwrap_err();
+    assert!(err.message().contains("stale"));
+
+    // Unknown column in update fields.
+    let bad_field = StagedCommitPayload {
+        updates: vec![RowUpdatePayload {
+            primary_key_values: json!({"id": 1}),
+            updated_fields: json!({"ghost": "x"}),
+        }],
+        primary_keys: vec!["id".into()],
+        ..base.clone()
+    };
+    let err =
+        staged::build_staged_plan(Dialect::Ansi, ParamStyle::Question, &bad_field, &pk, &cols)
+            .unwrap_err();
+    assert!(err.message().contains("Unknown column"));
+
+    // NULL pk value.
+    let null_pk = StagedCommitPayload {
+        updates: vec![RowUpdatePayload {
+            primary_key_values: json!({"id": null}),
+            updated_fields: json!({"name": "x"}),
+        }],
+        primary_keys: vec!["id".into()],
+        ..base.clone()
+    };
+    let err = staged::build_staged_plan(Dialect::Ansi, ParamStyle::Question, &null_pk, &pk, &cols)
+        .unwrap_err();
+    assert!(err.message().contains("NULL"));
+
+    // Missing pk column in update identity.
+    let wrong_key = StagedCommitPayload {
+        updates: vec![RowUpdatePayload {
+            primary_key_values: json!({"name": "x"}),
+            updated_fields: json!({"name": "y"}),
+        }],
+        primary_keys: vec!["id".into()],
+        ..base.clone()
+    };
+    assert!(
+        staged::build_staged_plan(Dialect::Ansi, ParamStyle::Question, &wrong_key, &pk, &cols)
+            .is_err()
+    );
+
+    // Nested values rejected.
+    let nested = StagedCommitPayload {
+        updates: vec![RowUpdatePayload {
+            primary_key_values: json!({"id": 1}),
+            updated_fields: json!({"name": {"a": 1}}),
+        }],
+        primary_keys: vec!["id".into()],
+        ..base.clone()
+    };
+    assert!(
+        staged::build_staged_plan(Dialect::Ansi, ParamStyle::Question, &nested, &pk, &cols)
+            .is_err()
+    );
+}
+
+#[test]
+fn staged_plan_pg_dollar_params_and_composite_pk() {
+    let payload = StagedCommitPayload {
+        connection_id: "c".into(),
+        table_name: "t".into(),
+        primary_keys: vec!["a".into(), "b".into()],
+        inserts: vec![],
+        updates: vec![RowUpdatePayload {
+            primary_key_values: json!({"a": 1, "b": 2}),
+            updated_fields: json!({"x": 9}),
+        }],
+        deletes: vec![json!({"a": 3, "b": 4})],
+    };
+    let cols = vec!["a".to_string(), "b".to_string(), "x".to_string()];
+    let pk = vec!["a".to_string(), "b".to_string()];
+    let plan = staged::build_staged_plan(Dialect::Ansi, ParamStyle::DollarN, &payload, &pk, &cols)
+        .unwrap();
+    assert_eq!(
+        plan[0].sql,
+        "UPDATE \"t\" SET \"x\" = $1 WHERE \"a\" = $2 AND \"b\" = $3"
+    );
+    assert_eq!(plan[0].binds, vec![json!(9), json!(1), json!(2)]);
+    assert_eq!(
+        plan[1].sql,
+        "DELETE FROM \"t\" WHERE \"a\" = $4 AND \"b\" = $5"
+    );
+    assert_eq!(plan[1].binds, vec![json!(3), json!(4)]);
 }
 
 #[test]
@@ -54,7 +200,15 @@ fn table_data_query_builds_safely() {
         "SELECT * FROM `orders` WHERE status = 'paid' ORDER BY `created_at` DESC LIMIT 50 OFFSET 100"
     );
     // injection in sort_dir collapses to ASC
-    let bad = table_data_query(Dialect::Ansi, "t", 10, 0, None, Some("x"), Some("ASC; DROP"));
+    let bad = table_data_query(
+        Dialect::Ansi,
+        "t",
+        10,
+        0,
+        None,
+        Some("x"),
+        Some("ASC; DROP"),
+    );
     assert!(bad.contains("ORDER BY \"x\" ASC"));
 }
 
@@ -104,7 +258,12 @@ fn import_ddl_and_insert() {
     assert!(import_table_ddl(Dialect::Ansi, "t", &["bad header!".into()]).is_err());
     assert!(import_table_ddl(Dialect::Ansi, "t", &[]).is_err());
 
-    let ins = import_insert_sql(Dialect::Ansi, ParamStyle::DollarN, "t", &["a".into(), "b".into()]);
+    let ins = import_insert_sql(
+        Dialect::Ansi,
+        ParamStyle::DollarN,
+        "t",
+        &["a".into(), "b".into()],
+    );
     assert!(ins.contains("VALUES ($1, $2)"));
     let ins2 = import_insert_sql(Dialect::Backtick, ParamStyle::Question, "t", &["a".into()]);
     assert!(ins2.contains("VALUES (?)"));
@@ -112,7 +271,10 @@ fn import_ddl_and_insert() {
 
 #[test]
 fn qi_path_qualified_names() {
-    assert_eq!(Dialect::Ansi.qi_path("public.users"), "\"public\".\"users\"");
+    assert_eq!(
+        Dialect::Ansi.qi_path("public.users"),
+        "\"public\".\"users\""
+    );
     assert_eq!(Dialect::Backtick.qi_path("db.orders"), "`db`.`orders`");
     assert_eq!(Dialect::Ansi.qi_path("plain"), "\"plain\"");
 }
@@ -147,7 +309,11 @@ fn empty_insert_row_uses_default_values() {
         updates: vec![],
         deletes: vec![],
     };
-    let diff = preview_staged_sql(Dialect::Ansi, &payload);
+    let cols = vec!["id".to_string(), "name".to_string()];
+    let pk = vec!["id".to_string()];
+    let plan = staged::build_staged_plan(Dialect::Ansi, ParamStyle::Question, &payload, &pk, &cols)
+        .unwrap();
+    let diff = staged::diff_from_plan(&payload, &plan);
     assert_eq!(diff.generated_sql[0], "INSERT INTO \"t\" DEFAULT VALUES;");
 }
 
@@ -165,31 +331,28 @@ fn count_query_includes_filter() {
 
 #[test]
 fn add_fk_sql_generation() {
-    let s = add_fk_sql(
-        Dialect::Backtick,
-        "fk_orders_user",
-        "orders",
-        "user_id",
-        "users",
-        "id",
-        "cascade",
-        "bogus-injection",
-    );
+    let spec = crate::models::ForeignKeySpec {
+        constraint_name: "fk_orders_user".into(),
+        table: "orders".into(),
+        column: "user_id".into(),
+        ref_table: "users".into(),
+        ref_column: "id".into(),
+        on_delete: "cascade".into(),
+        on_update: "bogus-injection".into(),
+    };
+    let s = add_fk_sql(Dialect::Backtick, &spec);
     assert_eq!(
         s,
         "ALTER TABLE `orders` ADD CONSTRAINT `fk_orders_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE NO ACTION;"
     );
 
-    let a = add_fk_sql(
-        Dialect::Ansi,
-        "fk_o_u",
-        "orders",
-        "user_id",
-        "users",
-        "id",
-        "SET NULL",
-        "SET DEFAULT",
-    );
+    let spec2 = crate::models::ForeignKeySpec {
+        constraint_name: "fk_o_u".into(),
+        on_delete: "SET NULL".into(),
+        on_update: "SET DEFAULT".into(),
+        ..spec
+    };
+    let a = add_fk_sql(Dialect::Ansi, &spec2);
     assert!(a.contains("FOREIGN KEY (\"user_id\") REFERENCES \"users\"(\"id\")"));
     assert!(a.contains("ON DELETE SET NULL ON UPDATE SET DEFAULT"));
 }

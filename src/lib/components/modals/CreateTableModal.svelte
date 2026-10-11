@@ -1,6 +1,7 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
   import { api } from '$lib/api';
+  import { withProdGuard } from '$lib/api/approval';
   import { buildCreateTableSql, SQLITE_TYPES, type ColumnDef } from '$lib/utils/sql';
   import { Table2, Plus, Trash2, X, AlertCircle, Play } from 'lucide-svelte';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -42,7 +43,9 @@
     isCreating = true;
     execError = null;
     try {
-      await api.executeQuery(workspace.activeConnection.id, preview.sql);
+      await withProdGuard((tok) =>
+        api.executeQuery(workspace.activeConnection!.id, preview.sql, tok)
+      );
       await workspace.refreshTables();
       await workspace.refreshSchemaCache();
       await workspace.refreshLogs();
@@ -58,19 +61,19 @@
 
 {#if workspace.isCreateTableModalOpen}
   <div class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-    <div class="w-[820px] max-h-[88vh] bg-[#18181b] border border-[#27272a] rounded-xl shadow-2xl flex flex-col text-xs overflow-hidden select-none">
+    <div class="w-[820px] max-h-[88vh] bg-panel border border-edge rounded-xl shadow-2xl flex flex-col text-xs overflow-hidden select-none">
       <!-- Header -->
-      <div class="p-4 border-b border-[#27272a] flex items-center justify-between bg-[#141416]">
+      <div class="p-4 border-b border-edge flex items-center justify-between bg-subtle">
         <div class="flex items-center gap-2">
           <div class="p-1.5 rounded bg-sky-500/20 text-sky-400">
             <Table2 class="w-4 h-4" />
           </div>
           <div>
-            <h3 class="font-bold text-zinc-100 text-sm">{t('ct.title')}</h3>
-            <p class="text-zinc-400 text-[11px]">{t('ct.subtitle')}</p>
+            <h3 class="font-bold text-fg text-sm">{t('ct.title')}</h3>
+            <p class="text-muted text-[11px]">{t('ct.subtitle')}</p>
           </div>
         </div>
-        <button class="p-1 rounded hover:bg-[#27272a] text-zinc-400 hover:text-zinc-200" onclick={() => (workspace.isCreateTableModalOpen = false)}>
+        <button class="p-1 rounded hover:bg-hover text-muted hover:text-fg" onclick={() => (workspace.isCreateTableModalOpen = false)}>
           <X class="w-4 h-4" />
         </button>
       </div>
@@ -78,18 +81,18 @@
       <div class="flex-1 overflow-auto p-4 space-y-3">
         <!-- Table name -->
         <div class="space-y-1">
-          <span class="text-[10px] text-zinc-400 uppercase font-semibold">{t('ct.name')}</span>
+          <span class="text-[10px] text-muted uppercase font-semibold">{t('ct.name')}</span>
           <input
             type="text"
             bind:value={tableName}
-            class="w-72 bg-[#121214] border border-[#2e2e33] rounded px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-sky-500 font-mono text-[11px]"
+            class="w-72 bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none focus:border-sky-500 font-mono text-[11px]"
           />
         </div>
 
         <!-- Columns editor grid -->
-        <div class="border border-[#27272a] rounded-lg overflow-hidden">
+        <div class="border border-edge rounded-lg overflow-hidden">
           <table class="w-full text-left font-mono text-[11px]">
-            <thead class="bg-[#1e1e24] text-zinc-400 border-b border-[#27272a]">
+            <thead class="bg-elevated text-muted border-b border-edge">
               <tr>
                 <th class="px-2 py-2 w-44">{t('ct.col_name')}</th>
                 <th class="px-2 py-2 w-28">{t('ct.col_type')}</th>
@@ -103,37 +106,37 @@
             </thead>
             <tbody>
               {#each columns as c, i}
-                <tr class="border-b border-[#27272a]/50 hover:bg-[#1c1c20]">
+                <tr class="border-b border-edge/50 hover:bg-elevated">
                   <td class="px-2 py-1">
                     <input
                       type="text"
                       bind:value={c.name}
                       placeholder="column_name"
-                      class="w-full bg-transparent text-zinc-100 focus:outline-none border-b border-transparent focus:border-sky-500 py-0.5"
+                      class="w-full bg-transparent text-fg focus:outline-none border-b border-transparent focus:border-sky-500 py-0.5"
                     />
                   </td>
                   <td class="px-2 py-1">
-                    <select bind:value={c.dataType} class="w-full bg-[#121214] border border-[#2e2e33] rounded px-1 py-0.5 text-zinc-200 focus:outline-none text-[10px]">
+                    <select bind:value={c.dataType} class="w-full bg-app border border-edge rounded px-1 py-0.5 text-fg focus:outline-none text-[10px]">
                       {#each SQLITE_TYPES as t}
                         <option value={t}>{t}</option>
                       {/each}
                     </select>
                   </td>
                   <td class="px-2 py-1 text-center">
-                    <input type="checkbox" bind:checked={c.isPrimaryKey} class="rounded bg-[#27272a] border-zinc-700 accent-amber-400" />
+                    <input type="checkbox" bind:checked={c.isPrimaryKey} class="rounded bg-elevated border-strong accent-amber-400" />
                   </td>
                   <td class="px-2 py-1 text-center">
-                    <input type="checkbox" bind:checked={c.isNotNull} class="rounded bg-[#27272a] border-zinc-700 accent-sky-500" />
+                    <input type="checkbox" bind:checked={c.isNotNull} class="rounded bg-elevated border-strong accent-sky-500" />
                   </td>
                   <td class="px-2 py-1 text-center">
-                    <input type="checkbox" bind:checked={c.isUnique} class="rounded bg-[#27272a] border-zinc-700 accent-emerald-400" />
+                    <input type="checkbox" bind:checked={c.isUnique} class="rounded bg-elevated border-strong accent-emerald-400" />
                   </td>
                   <td class="px-2 py-1 text-center">
                     <input
                       type="checkbox"
                       bind:checked={c.autoIncrement}
                       disabled={!c.isPrimaryKey || c.dataType !== 'INTEGER'}
-                      class="rounded bg-[#27272a] border-zinc-700 accent-violet-400 disabled:opacity-30"
+                      class="rounded bg-elevated border-strong accent-violet-400 disabled:opacity-30"
                     />
                   </td>
                   <td class="px-2 py-1">
@@ -141,12 +144,12 @@
                       type="text"
                       bind:value={c.defaultValue}
                       placeholder={t('ct.default_ph')}
-                      class="w-full bg-transparent text-zinc-300 focus:outline-none border-b border-transparent focus:border-sky-500 py-0.5 text-[10px]"
+                      class="w-full bg-transparent text-fg2 focus:outline-none border-b border-transparent focus:border-sky-500 py-0.5 text-[10px]"
                     />
                   </td>
                   <td class="px-2 py-1 text-center">
                     <button
-                      class="p-0.5 rounded hover:bg-rose-500/20 text-zinc-500 hover:text-rose-400"
+                      class="p-0.5 rounded hover:bg-rose-500/20 text-faint hover:text-rose-400"
                       onclick={() => removeColumn(i)}
                       title={t('ct.remove')}
                     >
@@ -158,7 +161,7 @@
             </tbody>
           </table>
           <button
-            class="w-full py-1.5 flex items-center justify-center gap-1 text-zinc-400 hover:text-sky-400 hover:bg-[#1c1c20] transition-colors border-t border-[#27272a]"
+            class="w-full py-1.5 flex items-center justify-center gap-1 text-muted hover:text-sky-400 hover:bg-elevated transition-colors border-t border-edge"
             onclick={addColumn}
           >
             <Plus class="w-3.5 h-3.5" /><span>{t('ct.add')}</span>
@@ -166,8 +169,8 @@
         </div>
 
         <!-- Live DDL preview -->
-        <div class="border border-[#27272a] rounded-lg overflow-hidden bg-[#121214]">
-          <div class="px-3 py-2 border-b border-[#27272a] text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">
+        <div class="border border-edge rounded-lg overflow-hidden bg-app">
+          <div class="px-3 py-2 border-b border-edge text-[10px] uppercase tracking-wider text-faint font-semibold">
             {t('ct.ddl')}
           </div>
           {#if preview.error}
@@ -187,8 +190,8 @@
       </div>
 
       <!-- Footer -->
-      <div class="p-3 border-t border-[#27272a] bg-[#141416] flex justify-end gap-2">
-        <button class="px-3 py-1.5 rounded hover:bg-[#27272a] text-zinc-400 hover:text-zinc-200" onclick={() => (workspace.isCreateTableModalOpen = false)}>
+      <div class="p-3 border-t border-edge bg-subtle flex justify-end gap-2">
+        <button class="px-3 py-1.5 rounded hover:bg-hover text-muted hover:text-fg" onclick={() => (workspace.isCreateTableModalOpen = false)}>
           {t('common.cancel')}
         </button>
         <button

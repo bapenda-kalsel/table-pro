@@ -1,3 +1,4 @@
+import { aiApi } from './ai';
 import { auditApi } from './audit';
 import { connectionsApi } from './connections';
 import { dataApi } from './data';
@@ -16,4 +17,5 @@ export const api = {
   ...opsApi,
   ...auditApi,
   ...snippetsApi,
+  ...aiApi,
 };

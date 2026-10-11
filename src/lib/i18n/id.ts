@@ -8,6 +8,7 @@ export const id: Record<MessageKey, string> = {
   'common.cancel': 'Batal',
   'common.close': 'Tutup',
   'common.save': 'Simpan',
+  'common.saving': 'Menyimpan…',
   'common.discard': 'Buang',
   'common.refresh': 'Muat Ulang',
   'common.browse': 'Jelajah',
@@ -30,6 +31,7 @@ export const id: Record<MessageKey, string> = {
   'titlebar.maintenance_hint': 'Perawatan Tabel (VACUUM / Integritas - HeidiSQL)',
   'titlebar.console_hint': 'Konsol SQL Real-Time (⌘J - HeidiSQL)',
   'titlebar.language_hint': 'Interface language / Bahasa antarmuka',
+  'titlebar.theme_hint': 'Ganti tema gelap / terang',
 
   // ---------- sidebar ----------
   'sidebar.title': 'Objek Database',
@@ -74,6 +76,14 @@ export const id: Record<MessageKey, string> = {
   'confirm.delete_rows_title': 'Tandai baris untuk dihapus?',
   'confirm.delete_rows_msg':
     '{count} baris terpilih akan ditandai untuk dihapus — baris benar-benar terhapus saat Commit.',
+  'confirm.switch_conn_title': 'Buang pekerjaan belum disimpan?',
+  'confirm.switch_conn_msg':
+    'Staged changes atau draft belum disimpan akan dibuang sebelum pindah ke {name}.',
+  'confirm.switch_conn': 'Pindah & Buang',
+  'confirm.disconnect_title': 'Putuskan koneksi & buang pekerjaan?',
+  'confirm.disconnect_msg':
+    'Staged changes atau draft belum disimpan akan dibuang sebelum memutus {name}.',
+  'confirm.disconnect': 'Putuskan & Buang',
 
   // ---------- sql console ----------
   'console.title': 'Konsol SQL Real-Time (Power-Tool HeidiSQL)',
@@ -104,6 +114,7 @@ export const id: Record<MessageKey, string> = {
   'grid.last_page': 'Halaman terakhir',
   'grid.empty': 'Tidak ada data di tabel.',
   'grid.pk': 'Primary Key',
+  'grid.no_pk': 'Tabel tidak punya primary key — edit dan hapus baris dinonaktifkan.',
   'grid.auto': '(auto)',
   'grid.pending_changes': '{count} perubahan tertunda',
   'grid.pending_breakdown': '({inserts} baru, {updates} diubah, {deletes} dihapus)',
@@ -140,6 +151,8 @@ export const id: Record<MessageKey, string> = {
   'editor.snippet_delete_hint': 'Hapus snippet',
   'editor.snippet_save_ph': 'Simpan query ini sebagai...',
   'editor.prod_guard': 'Produksi — write guard aktif',
+  'guard.title': 'Produksi — {name}',
+  'guard.execute': 'Tetap Jalankan',
   'editor.success': 'Berhasil',
   'editor.export_hint': 'Ekspor hasil sebagai CSV',
   'editor.export': 'Ekspor CSV',
@@ -204,6 +217,7 @@ export const id: Record<MessageKey, string> = {
   'audit.loading': 'Memuat jejak audit...',
   'audit.empty': 'Tidak ada entri audit yang cocok dengan filter.',
   'audit.clear_confirm': 'Bersihkan SELURUH log audit persisten? Aksi ini tidak dapat dibatalkan.',
+  'audit.degraded': 'Peringatan: penulisan ke audit.jsonl gagal — jejak persisten mungkin tidak lengkap.',
 
   // ---------- dashboard ----------
   'dash.title': 'Dashboard Server',
@@ -285,6 +299,16 @@ export const id: Record<MessageKey, string> = {
   'conn.save_connect': 'Simpan & Hubungkan',
   'conn.saved': 'Profil tersimpan.',
   'conn.connect_hint': 'Hubungkan ke database ini',
+  'conn.tls_mode': 'Mode TLS / SSL',
+  'conn.tls_verify_full': 'Verify Full — enkripsi & verifikasi identitas server (disarankan)',
+  'conn.tls_verify_ca': 'Verify CA — enkripsi & verifikasi rantai sertifikat',
+  'conn.tls_require': 'Require — enkripsi, tanpa verifikasi sertifikat',
+  'conn.tls_prefer': 'Prefer — enkripsi bila server mendukung',
+  'conn.tls_disable': 'Nonaktif — tanpa enkripsi (tidak aman)',
+  'conn.tls_ca': 'Sertifikat CA Kustom (opsional)',
+  'conn.tls_ca_ph': 'Path ke .pem — hanya untuk server CA privat',
+  'conn.tls_ca_hint': 'Kosongkan untuk memakai penyimpanan sertifikat sistem.',
+  'conn.tls_browse_hint': 'Cari sertifikat CA (.pem, .crt)',
 
   // ---------- code review modal ----------
   'review.title': 'Code Review: Perubahan SQL Tertunda',
@@ -297,6 +321,7 @@ export const id: Record<MessageKey, string> = {
   'review.empty': 'Tidak ada statement untuk dieksekusi.',
   'review.discard': 'Buang Semua',
   'review.commit': 'Terapkan & Commit (⌘S)',
+  'review.stale': 'Staged changes diubah setelah review — menampilkan diff terbaru.',
 
   // ---------- quick switcher ----------
   'qs.placeholder': 'Buka apa pun (tabel, view, query)...',
@@ -385,6 +410,26 @@ export const id: Record<MessageKey, string> = {
   'welcome.new_query': 'Query SQL Baru (⌘T)',
   'common.connect_failed': 'Gagal terhubung: ',
   'common.commit_failed': 'Commit gagal: ',
+  // ---------- ai assistant ----------
+  'ai.settings_title': 'Pengaturan Asisten AI',
+  'ai.provider': 'Provider',
+  'ai.model': 'Model',
+  'ai.base_url': 'Base URL (opsional)',
+  'ai.base_url_hint': 'Ganti untuk endpoint kompatibel-OpenAI (OpenRouter, self-hosted, …).',
+  'ai.api_key': 'API Key',
+  'ai.key_placeholder': 'Tempel API key — disimpan di OS keychain',
+  'ai.key_stored': '•••• key tersimpan — kosongkan untuk mempertahankan',
+  'ai.key_hint': 'Key tersimpan di OS keychain, bukan di file project.',
+  'ai.clear_key': 'Hapus key tersimpan',
+  'ai.saved': 'Pengaturan AI tersimpan.',
+  'ai.prompt_placeholder': 'Jelaskan SQL yang dibutuhkan… mis. "10 user dengan order terbanyak"',
+  'ai.generate': 'Generate',
+  'ai.generating': 'Memproses…',
+  'ai.insert': 'Sisipkan',
+  'ai.replace': 'Ganti',
+  'ai.dismiss': 'Tutup',
+  'ai.run_hint': 'Jalankan lewat alur eksekusi biasa — tinjau sebelum run.',
+  'ai.settings_hint': 'Pengaturan AI',
   'tab.query': 'Kueri {count}',
   'tab.audit': 'Audit Kueri',
   'tab.erd': 'ER Diagram',

@@ -1,21 +1,27 @@
 //! SQL log (in-memory console) + persistent audit trail commands.
 
+use crate::errors::AppResult;
 use crate::models::{AuditStats, SqlLogEntry};
 use crate::state::AppState;
 use crate::vault;
 use tauri::State;
 
 #[tauri::command]
-pub async fn get_sql_logs(state: State<'_, AppState>) -> Result<Vec<SqlLogEntry>, String> {
-    let logs = state.logs.read().await;
-    Ok(logs.clone())
+pub async fn get_sql_logs(state: State<'_, AppState>) -> AppResult<Vec<SqlLogEntry>> {
+    Ok(state.audit.console_entries().await)
 }
 
 #[tauri::command]
-pub async fn clear_sql_logs(state: State<'_, AppState>) -> Result<(), String> {
-    let mut logs = state.logs.write().await;
-    logs.clear();
+pub async fn clear_sql_logs(state: State<'_, AppState>) -> AppResult<()> {
+    state.audit.clear_console().await;
     Ok(())
+}
+
+/// Whether durable audit persistence has failed — the UI should warn the
+/// user that the on-disk trail may be incomplete.
+#[tauri::command]
+pub async fn audit_storage_degraded(state: State<'_, AppState>) -> AppResult<bool> {
+    Ok(state.audit.is_degraded())
 }
 
 #[tauri::command]
@@ -25,7 +31,7 @@ pub async fn get_audit_log(
     text: Option<String>,
     errors_only: Option<bool>,
     statement_type: Option<String>,
-) -> Result<Vec<SqlLogEntry>, String> {
+) -> AppResult<Vec<SqlLogEntry>> {
     Ok(vault::load_audit_filtered(
         limit.map(|l| l as usize),
         connection_id.as_deref(),
@@ -36,16 +42,16 @@ pub async fn get_audit_log(
 }
 
 #[tauri::command]
-pub async fn get_audit_stats() -> Result<AuditStats, String> {
+pub async fn get_audit_stats() -> AppResult<AuditStats> {
     Ok(vault::audit_stats())
 }
 
 #[tauri::command]
-pub async fn clear_audit_log() -> Result<(), String> {
+pub async fn clear_audit_log() -> AppResult<()> {
     vault::clear_audit()
 }
 
 #[tauri::command]
-pub async fn export_audit_log(format: String) -> Result<String, String> {
+pub async fn export_audit_log(format: String) -> AppResult<String> {
     vault::export_audit(&format)
 }

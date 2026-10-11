@@ -2,6 +2,7 @@
 //! Each module is a thin layer: resolve the driver from AppState, delegate to
 //! the `DatabaseDriver` trait, and record the call in the SQL audit log.
 
+pub mod ai;
 pub mod audit;
 pub mod connection;
 pub mod data;

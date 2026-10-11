@@ -50,18 +50,18 @@
   );
 </script>
 
-<div class="flex-1 flex flex-col h-full bg-[#121214] text-xs select-none overflow-hidden">
+<div class="flex-1 flex flex-col h-full bg-app text-xs select-none overflow-hidden">
   <!-- Header -->
-  <div class="h-10 border-b border-[#27272a] bg-[#18181b] flex items-center justify-between px-4">
-    <div class="flex items-center gap-2 font-semibold text-zinc-200">
+  <div class="h-10 border-b border-edge bg-panel flex items-center justify-between px-4">
+    <div class="flex items-center gap-2 font-semibold text-fg">
       <Gauge class="w-4 h-4 text-sky-400" />
       <span>{t('dash.title')}</span>
       {#if stats}
-        <span class="text-[10px] text-zinc-500 font-mono">{stats.version}</span>
+        <span class="text-[10px] text-faint font-mono">{stats.version}</span>
       {/if}
     </div>
     <button
-      class="flex items-center gap-1 px-2.5 py-1 rounded bg-[#27272a] hover:bg-[#3f3f46] text-zinc-200 transition-colors"
+      class="flex items-center gap-1 px-2.5 py-1 rounded bg-elevated hover:bg-hover text-fg transition-colors"
       onclick={load}
     >
       <RefreshCw class="w-3.5 h-3.5" /><span>{t('common.refresh')}</span>
@@ -70,7 +70,7 @@
 
   <div class="flex-1 overflow-auto p-4 space-y-4">
     {#if loading}
-      <div class="flex items-center justify-center h-40 text-zinc-500 gap-2">
+      <div class="flex items-center justify-center h-40 text-faint gap-2">
         <div class="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
         <span>{t('dash.loading')}</span>
       </div>
@@ -79,39 +79,39 @@
     {:else if stats}
       <!-- Primary stat cards -->
       <div class="grid grid-cols-4 gap-3">
-        <div class="rounded-lg border border-[#27272a] bg-[#18181b] p-3">
-          <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-zinc-500">
+        <div class="rounded-lg border border-edge bg-panel p-3">
+          <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-faint">
             <HardDrive class="w-3 h-3" /> {t('dash.db_size')}
           </div>
-          <div class="text-xl font-bold text-zinc-100 font-mono mt-1">{fmtBytes(stats.file_size_bytes)}</div>
-          <div class="text-[10px] text-zinc-500 font-mono mt-0.5">
+          <div class="text-xl font-bold text-fg font-mono mt-1">{fmtBytes(stats.file_size_bytes)}</div>
+          <div class="text-[10px] text-faint font-mono mt-0.5">
             {t('dash.page_detail', { pages: stats.page_count, size: stats.page_size })}
           </div>
         </div>
-        <div class="rounded-lg border border-[#27272a] bg-[#18181b] p-3">
-          <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-zinc-500">
+        <div class="rounded-lg border border-edge bg-panel p-3">
+          <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-faint">
             <Rows3 class="w-3 h-3" /> {t('dash.total_rows')}
           </div>
-          <div class="text-xl font-bold text-zinc-100 font-mono mt-1">{stats.total_rows.toLocaleString()}</div>
-          <div class="text-[10px] text-zinc-500 font-mono mt-0.5">{t('dash.across_tables', { count: stats.table_count })}</div>
+          <div class="text-xl font-bold text-fg font-mono mt-1">{stats.total_rows.toLocaleString()}</div>
+          <div class="text-[10px] text-faint font-mono mt-0.5">{t('dash.across_tables', { count: stats.table_count })}</div>
         </div>
-        <div class="rounded-lg border border-[#27272a] bg-[#18181b] p-3">
-          <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-zinc-500">
+        <div class="rounded-lg border border-edge bg-panel p-3">
+          <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-faint">
             <Layers class="w-3 h-3" /> {t('dash.free_space')}
           </div>
-          <div class={`text-xl font-bold font-mono mt-1 ${wastedPct > 15 ? 'text-amber-400' : 'text-zinc-100'}`}>
+          <div class={`text-xl font-bold font-mono mt-1 ${wastedPct > 15 ? 'text-amber-400' : 'text-fg'}`}>
             {fmtBytes(stats.freelist_pages * stats.page_size)}
           </div>
-          <div class="text-[10px] text-zinc-500 font-mono mt-0.5">
+          <div class="text-[10px] text-faint font-mono mt-0.5">
             {t('dash.fragmented', { pct: wastedPct })} {wastedPct > 15 ? t('dash.consider_vacuum') : ''}
           </div>
         </div>
-        <div class="rounded-lg border border-[#27272a] bg-[#18181b] p-3">
-          <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-zinc-500">
+        <div class="rounded-lg border border-edge bg-panel p-3">
+          <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-faint">
             <Clock class="w-3 h-3" /> {t('dash.queries')}
           </div>
-          <div class="text-xl font-bold text-zinc-100 font-mono mt-1">{audit?.total ?? 0}</div>
-          <div class="text-[10px] font-mono mt-0.5 {audit && audit.error_count > 0 ? 'text-rose-400' : 'text-zinc-500'}">
+          <div class="text-xl font-bold text-fg font-mono mt-1">{audit?.total ?? 0}</div>
+          <div class="text-[10px] font-mono mt-0.5 {audit && audit.error_count > 0 ? 'text-rose-400' : 'text-faint'}">
             {t('dash.errors_avg', { errors: audit?.error_count ?? 0, avg: audit?.avg_duration_ms.toFixed(1) ?? '0' })}
           </div>
         </div>
@@ -119,73 +119,73 @@
 
       <div class="grid grid-cols-2 gap-3">
         <!-- Storage & Engine -->
-        <div class="rounded-lg border border-[#27272a] bg-[#18181b] overflow-hidden">
-          <div class="p-3 border-b border-[#27272a] font-semibold text-zinc-300 flex items-center gap-2">
+        <div class="rounded-lg border border-edge bg-panel overflow-hidden">
+          <div class="p-3 border-b border-edge font-semibold text-fg2 flex items-center gap-2">
             <Database class="w-3.5 h-3.5 text-sky-400" /> {t('dash.engine')}
           </div>
           <table class="w-full font-mono text-[11px]">
             <tbody>
-              <tr class="border-b border-[#27272a]/50">
-                <td class="px-3 py-2 text-zinc-500 w-40">{t('dash.row_engine')}</td>
-                <td class="px-3 py-2 text-zinc-200">{stats.version}</td>
+              <tr class="border-b border-edge/50">
+                <td class="px-3 py-2 text-faint w-40">{t('dash.row_engine')}</td>
+                <td class="px-3 py-2 text-fg">{stats.version}</td>
               </tr>
-              <tr class="border-b border-[#27272a]/50">
-                <td class="px-3 py-2 text-zinc-500">{t('dash.row_file')}</td>
-                <td class="px-3 py-2 text-zinc-200 truncate select-text" title={stats.file_path ?? ''}>
+              <tr class="border-b border-edge/50">
+                <td class="px-3 py-2 text-faint">{t('dash.row_file')}</td>
+                <td class="px-3 py-2 text-fg truncate select-text" title={stats.file_path ?? ''}>
                   {stats.file_path ?? t('dash.memory_db')}
                 </td>
               </tr>
-              <tr class="border-b border-[#27272a]/50">
-                <td class="px-3 py-2 text-zinc-500">{t('dash.row_journal')}</td>
-                <td class="px-3 py-2 text-zinc-200 uppercase">{stats.journal_mode || 'default'}</td>
+              <tr class="border-b border-edge/50">
+                <td class="px-3 py-2 text-faint">{t('dash.row_journal')}</td>
+                <td class="px-3 py-2 text-fg uppercase">{stats.journal_mode || 'default'}</td>
               </tr>
-              <tr class="border-b border-[#27272a]/50">
-                <td class="px-3 py-2 text-zinc-500">{t('dash.row_encoding')}</td>
-                <td class="px-3 py-2 text-zinc-200">{stats.encoding || 'UTF-8'}</td>
+              <tr class="border-b border-edge/50">
+                <td class="px-3 py-2 text-faint">{t('dash.row_encoding')}</td>
+                <td class="px-3 py-2 text-fg">{stats.encoding || 'UTF-8'}</td>
               </tr>
               <tr>
-                <td class="px-3 py-2 text-zinc-500">{t('dash.row_conn')}</td>
-                <td class="px-3 py-2 text-zinc-200">{workspace.activeConnection?.name ?? '-'}</td>
+                <td class="px-3 py-2 text-faint">{t('dash.row_conn')}</td>
+                <td class="px-3 py-2 text-fg">{workspace.activeConnection?.name ?? '-'}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <!-- Schema Objects -->
-        <div class="rounded-lg border border-[#27272a] bg-[#18181b] overflow-hidden">
-          <div class="p-3 border-b border-[#27272a] font-semibold text-zinc-300 flex items-center gap-2">
+        <div class="rounded-lg border border-edge bg-panel overflow-hidden">
+          <div class="p-3 border-b border-edge font-semibold text-fg2 flex items-center gap-2">
             <FileText class="w-3.5 h-3.5 text-amber-400" /> {t('dash.objects')}
           </div>
           <div class="grid grid-cols-2 gap-2 p-3">
             <button
-              class="flex items-center gap-2.5 p-2.5 rounded-lg bg-[#121214] border border-[#27272a] hover:border-sky-500/40 transition-colors text-left"
+              class="flex items-center gap-2.5 p-2.5 rounded-lg bg-app border border-edge hover:border-sky-500/40 transition-colors text-left"
               onclick={() => workspace.openErdTab()}
             >
               <Table class="w-4 h-4 text-sky-400" />
               <div>
-                <div class="font-mono font-bold text-zinc-100">{stats.table_count}</div>
-                <div class="text-[10px] text-zinc-500">{t('dash.tables')}</div>
+                <div class="font-mono font-bold text-fg">{stats.table_count}</div>
+                <div class="text-[10px] text-faint">{t('dash.tables')}</div>
               </div>
             </button>
-            <div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-[#121214] border border-[#27272a]">
+            <div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-app border border-edge">
               <Eye class="w-4 h-4 text-indigo-400" />
               <div>
-                <div class="font-mono font-bold text-zinc-100">{stats.view_count}</div>
-                <div class="text-[10px] text-zinc-500">{t('dash.views')}</div>
+                <div class="font-mono font-bold text-fg">{stats.view_count}</div>
+                <div class="text-[10px] text-faint">{t('dash.views')}</div>
               </div>
             </div>
-            <div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-[#121214] border border-[#27272a]">
+            <div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-app border border-edge">
               <KeyRound class="w-4 h-4 text-amber-400" />
               <div>
-                <div class="font-mono font-bold text-zinc-100">{stats.index_count}</div>
-                <div class="text-[10px] text-zinc-500">{t('dash.indexes')}</div>
+                <div class="font-mono font-bold text-fg">{stats.index_count}</div>
+                <div class="text-[10px] text-faint">{t('dash.indexes')}</div>
               </div>
             </div>
-            <div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-[#121214] border border-[#27272a]">
+            <div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-app border border-edge">
               <Zap class="w-4 h-4 text-violet-400" />
               <div>
-                <div class="font-mono font-bold text-zinc-100">{stats.trigger_count}</div>
-                <div class="text-[10px] text-zinc-500">{t('dash.triggers')}</div>
+                <div class="font-mono font-bold text-fg">{stats.trigger_count}</div>
+                <div class="text-[10px] text-faint">{t('dash.triggers')}</div>
               </div>
             </div>
           </div>
@@ -203,8 +203,8 @@
       </div>
 
       <!-- Per-table row distribution -->
-      <div class="rounded-lg border border-[#27272a] bg-[#18181b] overflow-hidden">
-        <div class="p-3 border-b border-[#27272a] font-semibold text-zinc-300">
+      <div class="rounded-lg border border-edge bg-panel overflow-hidden">
+        <div class="p-3 border-b border-edge font-semibold text-fg2">
           {t('dash.rows_per_table')}
         </div>
         <div class="p-3 space-y-1.5">
@@ -216,18 +216,18 @@
               onclick={() => workspace.openTableTab(tbl.name)}
               title={t('dash.open_table', { name: tbl.name })}
             >
-              <span class="w-32 truncate text-right text-zinc-400 group-hover:text-zinc-200 font-mono text-[10px]">{tbl.name}</span>
-              <div class="flex-1 h-4 rounded bg-[#121214] overflow-hidden">
+              <span class="w-32 truncate text-right text-muted group-hover:text-fg font-mono text-[10px]">{tbl.name}</span>
+              <div class="flex-1 h-4 rounded bg-app overflow-hidden">
                 <div
                   class="h-full rounded bg-gradient-to-r from-sky-600/70 to-indigo-500/70 group-hover:from-sky-500 group-hover:to-indigo-400 transition-all"
                   style={`width: ${Math.max(pct, n > 0 ? 2 : 0)}%`}
                 ></div>
               </div>
-              <span class="w-16 text-zinc-400 font-mono text-[10px]">{n.toLocaleString()}</span>
+              <span class="w-16 text-muted font-mono text-[10px]">{n.toLocaleString()}</span>
             </button>
           {/each}
           {#if workspace.tables.filter((tbl) => tbl.table_type === 'table').length === 0}
-            <div class="text-zinc-500 italic p-2">{t('dash.no_tables')}</div>
+            <div class="text-faint italic p-2">{t('dash.no_tables')}</div>
           {/if}
         </div>
       </div>

@@ -1,9 +1,11 @@
-use super::common::{self, Dialect, ParamStyle};
+use super::common::{self, staged, Dialect, ParamStyle};
+use super::factory::TlsConfig;
 use super::DatabaseDriver;
+use crate::errors::{AppError, AppResult, ResultExt};
 use crate::models::{
-    DatabaseStats, ExplainResult, ExplainStep, ExportResult, ForeignKeyInfo, FullTableSchema,
-    GlobalSearchResult, IndexInfo, QueryResultData, StagedCommitPayload, StagedDiffSummary,
-    TableColumnMetadata, TableInfo, TriggerInfo,
+    DatabaseStats, ExplainResult, ExplainStep, ExportResult, ForeignKeyInfo, ForeignKeySpec,
+    FullTableSchema, GlobalSearchResult, IndexInfo, QueryResultData, StagedCommitPayload,
+    StagedDiffSummary, TableColumnMetadata, TableInfo, TriggerInfo,
 };
 use async_trait::async_trait;
 use serde_json::{json, Map, Value};
@@ -12,9 +14,7 @@ use sqlx::{Column, Row, TypeInfo, ValueRef};
 use std::time::{Duration, Instant};
 
 /// Verbs whose statements return rows.
-const ROW_RETURNING_VERBS: &[&str] = &[
-    "select", "with", "values", "table", "show", "explain",
-];
+const ROW_RETURNING_VERBS: &[&str] = &["select", "with", "values", "table", "show", "explain"];
 
 const SCHEMA: &str = "public";
 
@@ -44,27 +44,64 @@ fn to_hex(b: &[u8]) -> String {
     }
 }
 
+/// Bind a JSON scalar to a Postgres query placeholder.
+fn bind_json<'q>(
+    q: sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments>,
+    v: &'q serde_json::Value,
+) -> sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments> {
+    match v {
+        serde_json::Value::Null => q.bind(None::<String>),
+        serde_json::Value::Bool(b) => q.bind(*b),
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                q.bind(i)
+            } else {
+                q.bind(n.as_f64().unwrap_or(0.0))
+            }
+        }
+        serde_json::Value::String(s) => q.bind(s.as_str()),
+        // Rejected by staged-plan validation; render as text if reached.
+        other => q.bind(other.to_string()),
+    }
+}
+
 impl PostgresDriver {
     pub async fn new(
         host: &str,
         port: u16,
         database: &str,
         username: &str,
-        password: &str,
-    ) -> Result<Self, String> {
-        let opts = PgConnectOptions::new()
+        password: Option<&str>,
+        tls: &TlsConfig,
+    ) -> AppResult<Self> {
+        use super::factory::TlsMode;
+        use sqlx::postgres::PgSslMode;
+
+        let mut opts = PgConnectOptions::new()
             .host(host)
             .port(port)
             .username(username)
-            .password(password)
-            .database(database);
+            .database(database)
+            .ssl_mode(match tls.mode {
+                TlsMode::Disabled => PgSslMode::Disable,
+                TlsMode::Prefer => PgSslMode::Prefer,
+                TlsMode::Required => PgSslMode::Require,
+                TlsMode::VerifyCa => PgSslMode::VerifyCa,
+                TlsMode::VerifyFull => PgSslMode::VerifyFull,
+            });
+        if let Some(pw) = password {
+            opts = opts.password(pw);
+        }
+        if let Some(ca) = &tls.ca_cert_path {
+            opts = opts.ssl_root_cert(ca);
+        }
 
         let pool = PgPoolOptions::new()
             .max_connections(5)
             .acquire_timeout(Duration::from_secs(10))
             .connect_with(opts)
             .await
-            .map_err(|e| format!("PostgreSQL connection failed: {}", e))?;
+            .map_err(AppError::from)?;
 
         Ok(Self {
             pool,
@@ -72,6 +109,21 @@ impl PostgresDriver {
             host: host.to_string(),
             port,
         })
+    }
+
+    /// Validate staged payload against live metadata and build the bound plan.
+    async fn staged_plan(
+        &self,
+        payload: &StagedCommitPayload,
+    ) -> AppResult<Vec<staged::BoundStatement>> {
+        let cols = self.get_table_schema(&payload.table_name).await?;
+        let pk: Vec<String> = cols
+            .iter()
+            .filter(|c| c.is_primary_key)
+            .map(|c| c.name.clone())
+            .collect();
+        let all: Vec<String> = cols.iter().map(|c| c.name.clone()).collect();
+        staged::build_staged_plan(Dialect::Ansi, ParamStyle::DollarN, payload, &pk, &all)
     }
 
     fn value_to_json(row: &PgRow, i: usize) -> Value {
@@ -90,7 +142,10 @@ impl PostgresDriver {
             .unwrap_or_default();
 
         match type_name.as_str() {
-            "BOOL" | "BOOLEAN" => row.try_get::<bool, _>(i).map(Value::from).unwrap_or(Value::Null),
+            "BOOL" | "BOOLEAN" => row
+                .try_get::<bool, _>(i)
+                .map(Value::from)
+                .unwrap_or(Value::Null),
             "INT2" | "SMALLINT" | "CHAR" => row
                 .try_get::<i16, _>(i)
                 .map(Value::from)
@@ -191,16 +246,16 @@ impl PostgresDriver {
 
 #[async_trait]
 impl DatabaseDriver for PostgresDriver {
-    async fn ping(&self) -> Result<f64, String> {
+    async fn ping(&self) -> AppResult<f64> {
         let start = Instant::now();
         sqlx::query("SELECT 1")
             .fetch_one(&self.pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(AppError::from)?;
         Ok(start.elapsed().as_secs_f64() * 1000.0)
     }
 
-    async fn list_tables(&self) -> Result<Vec<TableInfo>, String> {
+    async fn list_tables(&self) -> AppResult<Vec<TableInfo>> {
         let rows = sqlx::query(
             "SELECT t.table_name, t.table_type,
                     COALESCE((SELECT c.reltuples::bigint
@@ -216,7 +271,7 @@ impl DatabaseDriver for PostgresDriver {
         .bind(SCHEMA)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(AppError::from)?;
 
         Ok(rows
             .iter()
@@ -225,16 +280,13 @@ impl DatabaseDriver for PostgresDriver {
                 TableInfo {
                     name: r.try_get("table_name").unwrap_or_default(),
                     table_type: if ty == "BASE TABLE" { "table" } else { "view" }.to_string(),
-                    row_count_estimate: r
-                        .try_get::<i64, _>("est")
-                        .ok()
-                        .filter(|n| *n >= 0),
+                    row_count_estimate: r.try_get::<i64, _>("est").ok().filter(|n| *n >= 0),
                 }
             })
             .collect())
     }
 
-    async fn get_table_schema(&self, table: &str) -> Result<Vec<TableColumnMetadata>, String> {
+    async fn get_table_schema(&self, table: &str) -> AppResult<Vec<TableColumnMetadata>> {
         let rows = sqlx::query(
             "SELECT column_name, data_type, is_nullable, column_default
              FROM information_schema.columns
@@ -245,7 +297,7 @@ impl DatabaseDriver for PostgresDriver {
         .bind(table)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(AppError::from)?;
 
         let pks: std::collections::HashSet<String> =
             self.pk_columns(table).await.into_iter().collect();
@@ -264,7 +316,7 @@ impl DatabaseDriver for PostgresDriver {
         .fetch_all(&self.pool)
         .await
         .unwrap_or_default();
-        let comments: std::collections::HashMap<String, String> = comment_rows
+        let comments: std::collections::HashMap<String, std::string::String> = comment_rows
             .iter()
             .filter_map(|r| {
                 let n: String = r.try_get("attname").ok()?;
@@ -292,7 +344,7 @@ impl DatabaseDriver for PostgresDriver {
             .collect())
     }
 
-    async fn get_full_schema(&self, table: &str) -> Result<FullTableSchema, String> {
+    async fn get_full_schema(&self, table: &str) -> AppResult<FullTableSchema> {
         let columns = self.get_table_schema(table).await?;
 
         // Indexes from pg_indexes (parse indexdef for uniqueness/partial/cols)
@@ -303,7 +355,7 @@ impl DatabaseDriver for PostgresDriver {
         .bind(table)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(AppError::from)?;
 
         let indexes = idx_rows
             .iter()
@@ -361,7 +413,7 @@ impl DatabaseDriver for PostgresDriver {
         .bind(table)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(AppError::from)?;
 
         let foreign_keys = fk_rows
             .iter()
@@ -390,7 +442,7 @@ impl DatabaseDriver for PostgresDriver {
         .bind(table)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(AppError::from)?;
 
         let triggers = trg_rows
             .iter()
@@ -433,7 +485,7 @@ impl DatabaseDriver for PostgresDriver {
         filter: Option<&str>,
         sort_by: Option<&str>,
         sort_dir: Option<&str>,
-    ) -> Result<QueryResultData, String> {
+    ) -> AppResult<QueryResultData> {
         let start = Instant::now();
         let data_sql = common::table_data_query(
             Dialect::Ansi,
@@ -455,7 +507,7 @@ impl DatabaseDriver for PostgresDriver {
         let rows = sqlx::query(&data_sql)
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(AppError::from)?;
 
         let (columns, column_types) = match rows.first() {
             Some(r) => (
@@ -481,7 +533,7 @@ impl DatabaseDriver for PostgresDriver {
         })
     }
 
-    async fn execute_query(&self, sql: &str) -> Result<QueryResultData, String> {
+    async fn execute_query(&self, sql: &str) -> AppResult<QueryResultData> {
         let start = Instant::now();
         let verb = crate::models::detect_statement_type(sql).to_lowercase();
 
@@ -489,7 +541,7 @@ impl DatabaseDriver for PostgresDriver {
             let rows = sqlx::query(sql)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(|e| e.to_string())?;
+                .map_err(AppError::from)?;
             let (columns, column_types) = match rows.first() {
                 Some(r) => (
                     r.columns().iter().map(|c| c.name().to_string()).collect(),
@@ -509,7 +561,7 @@ impl DatabaseDriver for PostgresDriver {
             let res = sqlx::query(sql)
                 .execute(&self.pool)
                 .await
-                .map_err(|e| e.to_string())?;
+                .map_err(AppError::from)?;
             Ok(QueryResultData {
                 columns: vec!["Affected Rows".to_string()],
                 column_types: vec!["INTEGER".to_string()],
@@ -521,12 +573,12 @@ impl DatabaseDriver for PostgresDriver {
         }
     }
 
-    async fn explain_query(&self, sql: &str) -> Result<ExplainResult, String> {
+    async fn explain_query(&self, sql: &str) -> AppResult<ExplainResult> {
         let explain_sql = format!("EXPLAIN {}", sql.trim_end_matches(';'));
         let rows = sqlx::query(&explain_sql)
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(AppError::from)?;
 
         // EXPLAIN returns one text column ("QUERY PLAN") — one plan line per row.
         let mut steps = Vec::new();
@@ -581,43 +633,48 @@ impl DatabaseDriver for PostgresDriver {
     async fn preview_staged_changes(
         &self,
         payload: &StagedCommitPayload,
-    ) -> Result<StagedDiffSummary, String> {
-        Ok(common::preview_staged_sql(Dialect::Ansi, payload))
+    ) -> AppResult<StagedDiffSummary> {
+        let plan = self.staged_plan(payload).await?;
+        Ok(staged::diff_from_plan(payload, &plan))
     }
 
     async fn commit_staged_changes(
         &self,
         payload: StagedCommitPayload,
-    ) -> Result<QueryResultData, String> {
-        let diff = common::preview_staged_sql(Dialect::Ansi, &payload);
+    ) -> AppResult<QueryResultData> {
+        let plan = self.staged_plan(&payload).await?;
         let start = Instant::now();
 
         let mut tx = self
             .pool
             .begin()
             .await
-            .map_err(|e| format!("Transaction begin failed: {}", e))?;
+            .db_with(|e| format!("Transaction begin failed: {}", e))?;
 
         let mut total_affected = 0;
-        for sql in &diff.generated_sql {
-            let res = sqlx::query(sql)
+        for stmt in &plan {
+            let mut q = sqlx::query(&stmt.sql);
+            for v in &stmt.binds {
+                q = bind_json(q, v);
+            }
+            let res = q
                 .execute(&mut *tx)
                 .await
-                .map_err(|e| format!("Failed executing '{}': {}", sql, e))?;
+                .db_with(|e| format!("Failed executing '{}': {}", stmt.preview, e))?;
             total_affected += res.rows_affected();
         }
 
         tx.commit()
             .await
-            .map_err(|e| format!("Transaction commit failed: {}", e))?;
+            .db_with(|e| format!("Transaction commit failed: {}", e))?;
 
         Ok(QueryResultData {
-            columns: vec!["Committed Statements".to_string(), "Total Affected".to_string()],
+            columns: vec![
+                "Committed Statements".to_string(),
+                "Total Affected".to_string(),
+            ],
             column_types: vec!["INTEGER".to_string(), "INTEGER".to_string()],
-            rows: vec![vec![
-                json!(diff.generated_sql.len()),
-                json!(total_affected),
-            ]],
+            rows: vec![vec![json!(plan.len()), json!(total_affected)]],
             execution_time_ms: start.elapsed().as_secs_f64() * 1000.0,
             affected_rows: total_affected,
             total_rows: 1,
@@ -625,7 +682,7 @@ impl DatabaseDriver for PostgresDriver {
     }
 
     /// Postgres has no SHOW CREATE TABLE — synthesize DDL from catalog metadata.
-    async fn get_table_ddl(&self, table: &str) -> Result<String, String> {
+    async fn get_table_ddl(&self, table: &str) -> AppResult<String> {
         // Views first
         let view_def: Option<String> = sqlx::query("SELECT pg_get_viewdef(to_regclass($1)) AS v;")
             .bind(format!("{}.{}", SCHEMA, table))
@@ -639,7 +696,7 @@ impl DatabaseDriver for PostgresDriver {
 
         let cols = self.get_table_schema(table).await?;
         if cols.is_empty() {
-            return Err(format!("Table '{}' not found", table));
+            return Err(AppError::not_found(format!("Table '{}' not found", table)));
         }
         let mut lines: Vec<String> = cols
             .iter()
@@ -668,7 +725,7 @@ impl DatabaseDriver for PostgresDriver {
         ))
     }
 
-    async fn run_maintenance(&self, action: &str, table: Option<&str>) -> Result<String, String> {
+    async fn run_maintenance(&self, action: &str, table: Option<&str>) -> AppResult<String> {
         match action.to_lowercase().as_str() {
             "vacuum" => {
                 // VACUUM cannot run inside a transaction block — pool.exec is fine.
@@ -679,7 +736,7 @@ impl DatabaseDriver for PostgresDriver {
                 sqlx::query(&sql)
                     .execute(&self.pool)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(AppError::from)?;
                 Ok("VACUUM ANALYZE completed. Dead tuples reclaimed.".to_string())
             }
             "analyze" => {
@@ -690,7 +747,7 @@ impl DatabaseDriver for PostgresDriver {
                 sqlx::query(&sql)
                     .execute(&self.pool)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(AppError::from)?;
                 Ok("ANALYZE completed. Planner statistics refreshed.".to_string())
             }
             "reindex" => {
@@ -701,28 +758,32 @@ impl DatabaseDriver for PostgresDriver {
                 sqlx::query(&sql)
                     .execute(&self.pool)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(AppError::from)?;
                 Ok("REINDEX completed.".to_string())
             }
             "integrity_check" => {
                 // PG has no CHECK TABLE; checksums are verified on page read.
                 // Offer a cheap sanity query instead of failing.
-                let n: i64 = sqlx::query("SELECT COUNT(*) FROM pg_catalog.pg_tables WHERE schemaname=$1;")
-                    .bind(SCHEMA)
-                    .fetch_one(&self.pool)
-                    .await
-                    .and_then(|r| r.try_get(0))
-                    .unwrap_or(0);
+                let n: i64 =
+                    sqlx::query("SELECT COUNT(*) FROM pg_catalog.pg_tables WHERE schemaname=$1;")
+                        .bind(SCHEMA)
+                        .fetch_one(&self.pool)
+                        .await
+                        .and_then(|r| r.try_get(0))
+                        .unwrap_or(0);
                 Ok(format!(
                     "PostgreSQL verifies page checksums automatically during reads. {} tables reachable — catalog healthy. For deep checks, use the amcheck extension.",
                     n
                 ))
             }
-            other => Err(format!("Unsupported maintenance action '{}'", other)),
+            other => Err(AppError::unsupported(format!(
+                "Unsupported maintenance action '{}'",
+                other
+            ))),
         }
     }
 
-    async fn search_text_in_database(&self, keyword: &str) -> Result<Vec<GlobalSearchResult>, String> {
+    async fn search_text_in_database(&self, keyword: &str) -> AppResult<Vec<GlobalSearchResult>> {
         let tables = self.list_tables().await?;
         let mut results = Vec::new();
 
@@ -770,7 +831,7 @@ impl DatabaseDriver for PostgresDriver {
         format: &str,
         filter: Option<&str>,
         dest_dir: &std::path::Path,
-    ) -> Result<ExportResult, String> {
+    ) -> AppResult<ExportResult> {
         let mut query = format!("SELECT * FROM {}", qi_path(table));
         if let Some(f) = filter {
             if !f.trim().is_empty() {
@@ -780,10 +841,14 @@ impl DatabaseDriver for PostgresDriver {
         let rows = sqlx::query(&query)
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| format!("Export query failed: {}", e))?;
+            .db_with(|e| format!("Export query failed: {}", e))?;
 
         let headers: Vec<String> = if let Some(first) = rows.first() {
-            first.columns().iter().map(|c| c.name().to_string()).collect()
+            first
+                .columns()
+                .iter()
+                .map(|c| c.name().to_string())
+                .collect()
         } else {
             self.get_table_schema(table)
                 .await
@@ -799,7 +864,13 @@ impl DatabaseDriver for PostgresDriver {
         let ts = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
         let safe_table: String = table
             .chars()
-            .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
 
         let bytes = common::export_rows_bytes(
@@ -824,7 +895,8 @@ impl DatabaseDriver for PostgresDriver {
                 _ => "txt",
             }
         ));
-        std::fs::write(&path, &bytes).map_err(|e| format!("Failed writing export: {}", e))?;
+        std::fs::write(&path, &bytes)
+            .map_err(|e| AppError::storage_at(&path, format!("Failed writing export: {}", e)))?;
 
         Ok(ExportResult {
             file_path: path.to_string_lossy().to_string(),
@@ -834,12 +906,16 @@ impl DatabaseDriver for PostgresDriver {
         })
     }
 
-    async fn import_csv(&self, table: &str, file_path: &str) -> Result<u64, String> {
-        let mut rdr = csv::Reader::from_path(file_path)
-            .map_err(|e| format!("Cannot open CSV '{}': {}", file_path, e))?;
+    async fn import_csv(&self, table: &str, file_path: &str) -> AppResult<u64> {
+        let mut rdr = csv::Reader::from_path(file_path).map_err(|e| {
+            AppError::storage_at(
+                std::path::Path::new(file_path),
+                format!("Cannot open CSV: {}", e),
+            )
+        })?;
         let headers: Vec<String> = rdr
             .headers()
-            .map_err(|e| e.to_string())?
+            .map_err(AppError::from)?
             .iter()
             .map(|h| h.trim().to_string())
             .collect();
@@ -848,7 +924,7 @@ impl DatabaseDriver for PostgresDriver {
         sqlx::query(&create_sql)
             .execute(&self.pool)
             .await
-            .map_err(|e| format!("Failed creating table: {}", e))?;
+            .db_with(|e| format!("Failed creating table: {}", e))?;
 
         let insert_sql =
             common::import_insert_sql(Dialect::Ansi, ParamStyle::DollarN, table, &headers);
@@ -857,11 +933,11 @@ impl DatabaseDriver for PostgresDriver {
             .pool
             .begin()
             .await
-            .map_err(|e| format!("Transaction begin failed: {}", e))?;
+            .db_with(|e| format!("Transaction begin failed: {}", e))?;
 
         let mut count: u64 = 0;
         for record in rdr.records() {
-            let rec = record.map_err(|e| format!("CSV parse error: {}", e))?;
+            let rec = record.db_with(|e| format!("CSV parse error: {}", e))?;
             let mut q = sqlx::query(&insert_sql);
             for i in 0..headers.len() {
                 let v = rec.get(i).unwrap_or("");
@@ -873,22 +949,28 @@ impl DatabaseDriver for PostgresDriver {
             }
             q.execute(&mut *tx)
                 .await
-                .map_err(|e| format!("Import failed at row {}: {}", count + 1, e))?;
+                .db_with(|e| format!("Import failed at row {}: {}", count + 1, e))?;
             count += 1;
         }
 
         tx.commit()
             .await
-            .map_err(|e| format!("Transaction commit failed: {}", e))?;
+            .db_with(|e| format!("Transaction commit failed: {}", e))?;
         Ok(count)
     }
 
-    async fn backup_database(&self, dest_dir: &std::path::Path) -> Result<String, String> {
+    async fn backup_database(&self, dest_dir: &std::path::Path) -> AppResult<String> {
         // No in-SQL binary backup for PG: produce a logical .sql dump.
         let ts = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
         let base = format!("{}-{}-{}", self.database, self.host, self.port)
             .chars()
-            .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect::<String>();
 
         let mut table_dumps = Vec::new();
@@ -899,7 +981,7 @@ impl DatabaseDriver for PostgresDriver {
                 let rows = sqlx::query(&format!("SELECT * FROM {}", qi(&t.name)))
                     .fetch_all(&self.pool)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(AppError::from)?;
                 let maps: Vec<Map<String, Value>> = rows.iter().map(Self::row_to_map).collect();
                 table_dumps.push((ddl, t.name.clone(), maps));
             } else {
@@ -910,20 +992,20 @@ impl DatabaseDriver for PostgresDriver {
         let content = common::dump_content(Dialect::Ansi, &table_dumps, &extras);
         let mut path = dest_dir.to_path_buf();
         path.push(format!("{}-{}.sql", base, ts));
-        std::fs::write(&path, content).map_err(|e| format!("Backup dump failed: {}", e))?;
+        std::fs::write(&path, content).db_with(|e| format!("Backup dump failed: {}", e))?;
         Ok(path.to_string_lossy().to_string())
     }
 
-    async fn server_version(&self) -> Result<String, String> {
+    async fn server_version(&self) -> AppResult<String> {
         let row = sqlx::query("SHOW server_version;")
             .fetch_one(&self.pool)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(AppError::from)?;
         let v: String = row.try_get(0).unwrap_or_default();
         Ok(format!("PostgreSQL {}", v))
     }
 
-    async fn get_database_stats(&self) -> Result<DatabaseStats, String> {
+    async fn get_database_stats(&self) -> AppResult<DatabaseStats> {
         let db_size: i64 = sqlx::query("SELECT pg_database_size(current_database()) AS s;")
             .fetch_one(&self.pool)
             .await
@@ -946,7 +1028,7 @@ impl DatabaseDriver for PostgresDriver {
         .bind(SCHEMA)
         .fetch_one(&self.pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(AppError::from)?;
 
         let wal: String = sqlx::query("SHOW wal_level;")
             .fetch_one(&self.pool)
@@ -975,7 +1057,11 @@ impl DatabaseDriver for PostgresDriver {
             version,
             file_path: Some(format!("{}:{}/{}", self.host, self.port, self.database)),
             file_size_bytes: db_size.max(0) as u64,
-            page_count: if block_size > 0 { (db_size / block_size).max(0) as u64 } else { 0 },
+            page_count: if block_size > 0 {
+                (db_size / block_size).max(0) as u64
+            } else {
+                0
+            },
             page_size: block_size.max(0) as u64,
             freelist_pages: 0,
             journal_mode: wal,
@@ -989,31 +1075,17 @@ impl DatabaseDriver for PostgresDriver {
     }
 
     /// PostgreSQL supports `ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY` natively.
-    async fn add_foreign_key(
-        &self,
-        constraint_name: &str,
-        table: &str,
-        column: &str,
-        ref_table: &str,
-        ref_column: &str,
-        on_delete: &str,
-        on_update: &str,
-    ) -> Result<String, String> {
-        let sql = common::add_fk_sql(
-            Dialect::Ansi,
-            constraint_name,
-            table,
-            column,
-            ref_table,
-            ref_column,
-            on_delete,
-            on_update,
-        );
+    async fn add_foreign_key(&self, spec: &ForeignKeySpec) -> AppResult<String> {
+        let sql = common::add_fk_sql(Dialect::Ansi, spec);
         sqlx::query(&sql)
             .execute(&self.pool)
             .await
-            .map_err(|e| format!("ADD FOREIGN KEY failed: {}", e))?;
+            .ctx_db("ADD FOREIGN KEY failed")?;
         Ok(format!("Executed: {}", sql))
+    }
+
+    async fn close(&self) {
+        self.pool.close().await;
     }
 }
 

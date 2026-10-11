@@ -30,13 +30,14 @@
   let onlyCurrentConn = $state(false);
 
   let lastExport = $state<string | null>(null);
+  let storageDegraded = $state(false);
 
   const STATEMENT_TYPES = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER', 'OTHER'];
 
   async function load() {
     loading = true;
     try {
-      [entries, stats] = await Promise.all([
+      [entries, stats, storageDegraded] = await Promise.all([
         api.getAuditLog({
           limit: filterLimit,
           text: filterText || undefined,
@@ -45,6 +46,7 @@
           connectionId: onlyCurrentConn ? workspace.activeConnection?.id : undefined,
         }),
         api.getAuditStats(),
+        api.isStorageDegraded(),
       ]);
       entries = entries.slice().reverse(); // newest first for display
     } finally {
@@ -93,7 +95,7 @@
       case 'CREATE':
       case 'DROP':
       case 'ALTER': return 'text-violet-400';
-      default: return 'text-zinc-400';
+      default: return 'text-muted';
     }
   }
 
@@ -106,38 +108,38 @@
   }
 </script>
 
-<div class="flex-1 flex flex-col h-full bg-[#121214] text-xs select-none overflow-hidden">
+<div class="flex-1 flex flex-col h-full bg-app text-xs select-none overflow-hidden">
   <!-- Header -->
-  <div class="h-10 border-b border-[#27272a] bg-[#18181b] flex items-center justify-between px-4">
-    <div class="flex items-center gap-2 font-semibold text-zinc-200">
+  <div class="h-10 border-b border-edge bg-panel flex items-center justify-between px-4">
+    <div class="flex items-center gap-2 font-semibold text-fg">
       <ShieldCheck class="w-4 h-4 text-emerald-400" />
       <span>{t('audit.title')}</span>
-      <span class="text-[10px] text-zinc-500 font-mono">{t('audit.subtitle')}</span>
+      <span class="text-[10px] text-faint font-mono">{t('audit.subtitle')}</span>
     </div>
     <div class="flex items-center gap-1.5">
       <button
-        class="flex items-center gap-1 px-2 py-1 rounded bg-[#27272a] hover:bg-[#3f3f46] text-zinc-300 transition-colors"
+        class="flex items-center gap-1 px-2 py-1 rounded bg-elevated hover:bg-hover text-fg2 transition-colors"
         onclick={load}
         title={t('common.refresh')}
       >
         <RefreshCw class="w-3.5 h-3.5" />
       </button>
       <button
-        class="flex items-center gap-1 px-2 py-1 rounded bg-[#27272a] hover:bg-[#3f3f46] text-zinc-300 transition-colors"
+        class="flex items-center gap-1 px-2 py-1 rounded bg-elevated hover:bg-hover text-fg2 transition-colors"
         onclick={() => exportAudit('csv')}
         title={t('audit.export_csv_hint')}
       >
         <Download class="w-3.5 h-3.5 text-sky-400" /><span>CSV</span>
       </button>
       <button
-        class="flex items-center gap-1 px-2 py-1 rounded bg-[#27272a] hover:bg-[#3f3f46] text-zinc-300 transition-colors"
+        class="flex items-center gap-1 px-2 py-1 rounded bg-elevated hover:bg-hover text-fg2 transition-colors"
         onclick={() => exportAudit('json')}
         title={t('audit.export_json_hint')}
       >
         <Download class="w-3.5 h-3.5 text-violet-400" /><span>JSON</span>
       </button>
       <button
-        class="flex items-center gap-1 px-2 py-1 rounded bg-[#27272a] hover:bg-[#3f3f46] text-zinc-300 transition-colors"
+        class="flex items-center gap-1 px-2 py-1 rounded bg-elevated hover:bg-hover text-fg2 transition-colors"
         onclick={openExportsFolder}
         title={t('audit.open_exports')}
       >
@@ -153,29 +155,36 @@
     </div>
   </div>
 
+  {#if storageDegraded}
+    <div class="px-4 py-1.5 bg-amber-950/40 border-b border-amber-900/40 text-amber-300 flex items-center gap-2">
+      <AlertTriangle class="w-3.5 h-3.5 shrink-0" />
+      <span>{t('audit.degraded')}</span>
+    </div>
+  {/if}
+
   <!-- Stats strip -->
   {#if stats}
-    <div class="grid grid-cols-5 gap-2 p-3 border-b border-[#27272a] bg-[#141416]">
-      <div class="rounded-lg border border-[#27272a] bg-[#18181b] p-2.5">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500">{t('audit.stat_total')}</div>
-        <div class="text-lg font-bold text-zinc-100 font-mono">{stats.total}</div>
+    <div class="grid grid-cols-5 gap-2 p-3 border-b border-edge bg-subtle">
+      <div class="rounded-lg border border-edge bg-panel p-2.5">
+        <div class="text-[10px] uppercase tracking-wider text-faint">{t('audit.stat_total')}</div>
+        <div class="text-lg font-bold text-fg font-mono">{stats.total}</div>
       </div>
-      <div class="rounded-lg border border-[#27272a] bg-[#18181b] p-2.5">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500">{t('audit.stat_errors')}</div>
-        <div class={`text-lg font-bold font-mono ${stats.error_count > 0 ? 'text-rose-400' : 'text-zinc-100'}`}>
+      <div class="rounded-lg border border-edge bg-panel p-2.5">
+        <div class="text-[10px] uppercase tracking-wider text-faint">{t('audit.stat_errors')}</div>
+        <div class={`text-lg font-bold font-mono ${stats.error_count > 0 ? 'text-rose-400' : 'text-fg'}`}>
           {stats.error_count}
         </div>
       </div>
-      <div class="rounded-lg border border-[#27272a] bg-[#18181b] p-2.5">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500">{t('audit.stat_avg')}</div>
-        <div class="text-lg font-bold text-zinc-100 font-mono">{stats.avg_duration_ms.toFixed(1)}ms</div>
+      <div class="rounded-lg border border-edge bg-panel p-2.5">
+        <div class="text-[10px] uppercase tracking-wider text-faint">{t('audit.stat_avg')}</div>
+        <div class="text-lg font-bold text-fg font-mono">{stats.avg_duration_ms.toFixed(1)}ms</div>
       </div>
-      <div class="rounded-lg border border-[#27272a] bg-[#18181b] p-2.5">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500">{t('audit.stat_slowest')}</div>
+      <div class="rounded-lg border border-edge bg-panel p-2.5">
+        <div class="text-[10px] uppercase tracking-wider text-faint">{t('audit.stat_slowest')}</div>
         <div class="text-lg font-bold text-amber-400 font-mono">{stats.max_duration_ms.toFixed(1)}ms</div>
       </div>
-      <div class="rounded-lg border border-[#27272a] bg-[#18181b] p-2.5 overflow-hidden">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500">{t('audit.stat_types')}</div>
+      <div class="rounded-lg border border-edge bg-panel p-2.5 overflow-hidden">
+        <div class="text-[10px] uppercase tracking-wider text-faint">{t('audit.stat_types')}</div>
         <div class="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 font-mono text-[10px]">
           {#each Object.entries(stats.by_statement_type).sort((a, b) => b[1] - a[1]).slice(0, 6) as [t, n]}
             <span class={typeColor(t)}>{t}:{n}</span>
@@ -186,45 +195,45 @@
   {/if}
 
   <!-- Filter bar -->
-  <div class="h-10 border-b border-[#27272a] bg-[#18181b] flex items-center gap-2 px-3">
+  <div class="h-10 border-b border-edge bg-panel flex items-center gap-2 px-3">
     <div class="relative flex items-center flex-1 max-w-md">
-      <Search class="w-3 h-3 absolute left-2 text-zinc-500" />
+      <Search class="w-3 h-3 absolute left-2 text-faint" />
       <input
         type="text"
         placeholder={t('audit.filter_ph')}
         bind:value={filterText}
         onkeydown={(e) => e.key === 'Enter' && load()}
-        class="w-full bg-[#141416] border border-[#2e2e33] rounded pl-7 pr-2 py-1 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-sky-500 text-[11px] font-mono"
+        class="w-full bg-subtle border border-edge rounded pl-7 pr-2 py-1 text-fg placeholder-faint focus:outline-none focus:border-sky-500 text-[11px] font-mono"
       />
     </div>
     <select
       bind:value={filterType}
       onchange={load}
-      class="bg-[#141416] border border-[#2e2e33] rounded px-2 py-1 text-zinc-300 focus:outline-none focus:border-sky-500 text-[11px]"
+      class="bg-subtle border border-edge rounded px-2 py-1 text-fg2 focus:outline-none focus:border-sky-500 text-[11px]"
     >
       <option value="">{t('audit.all_types')}</option>
       {#each STATEMENT_TYPES as t}
         <option value={t}>{t}</option>
       {/each}
     </select>
-    <label class="flex items-center gap-1.5 text-zinc-400 cursor-pointer">
-      <input type="checkbox" bind:checked={errorsOnly} onchange={load} class="rounded bg-[#27272a] border-zinc-700" />
+    <label class="flex items-center gap-1.5 text-muted cursor-pointer">
+      <input type="checkbox" bind:checked={errorsOnly} onchange={load} class="rounded bg-elevated border-strong" />
       <span>{t('audit.errors_only')}</span>
     </label>
-    <label class="flex items-center gap-1.5 text-zinc-400 cursor-pointer">
-      <input type="checkbox" bind:checked={onlyCurrentConn} onchange={load} class="rounded bg-[#27272a] border-zinc-700" />
+    <label class="flex items-center gap-1.5 text-muted cursor-pointer">
+      <input type="checkbox" bind:checked={onlyCurrentConn} onchange={load} class="rounded bg-elevated border-strong" />
       <span>{t('audit.this_conn')}</span>
     </label>
     <select
       bind:value={filterLimit}
       onchange={load}
-      class="bg-[#141416] border border-[#2e2e33] rounded px-2 py-1 text-zinc-300 focus:outline-none text-[11px]"
+      class="bg-subtle border border-edge rounded px-2 py-1 text-fg2 focus:outline-none text-[11px]"
     >
       <option value={100}>{t('audit.last', { count: 100 })}</option>
       <option value={500}>{t('audit.last', { count: 500 })}</option>
       <option value={2000}>{t('audit.last', { count: 2000 })}</option>
     </select>
-    <button class="px-2.5 py-1 rounded bg-[#27272a] hover:bg-[#3f3f46] text-zinc-300" onclick={load}>{t('common.apply')}</button>
+    <button class="px-2.5 py-1 rounded bg-elevated hover:bg-hover text-fg2" onclick={load}>{t('common.apply')}</button>
   </div>
 
   {#if lastExport}
@@ -237,30 +246,30 @@
   <!-- Entries -->
   <div class="flex-1 overflow-y-auto p-2 space-y-1 font-mono text-[11px]">
     {#if loading}
-      <div class="flex items-center justify-center py-10 text-zinc-500 gap-2">
+      <div class="flex items-center justify-center py-10 text-faint gap-2">
         <div class="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
         <span>{t('audit.loading')}</span>
       </div>
     {:else if entries.length === 0}
-      <div class="text-zinc-600 italic p-6 text-center">{t('audit.empty')}</div>
+      <div class="text-faint italic p-6 text-center">{t('audit.empty')}</div>
     {:else}
       {#each entries as e (e.id)}
         <div
           class={`flex items-start justify-between gap-2 p-2 rounded border transition-colors ${
             e.is_error
               ? 'bg-rose-950/25 border-rose-900/40'
-              : 'bg-[#141416] border-[#232327] hover:bg-[#1a1a1e]'
+              : 'bg-subtle border-edge hover:bg-hover'
           }`}
         >
           <div class="flex items-start gap-2.5 overflow-hidden">
-            <span class="text-zinc-500 shrink-0 text-[10px] w-[130px]">{e.timestamp}</span>
+            <span class="text-faint shrink-0 text-[10px] w-[130px]">{e.timestamp}</span>
             <span class={`shrink-0 font-bold w-[58px] ${typeColor(e.statement_type)}`}>{e.statement_type ?? '—'}</span>
             <div class="flex items-center gap-1 text-sky-400 shrink-0 text-[10px] w-[62px]">
               <Clock class="w-2.5 h-2.5" /><span>{e.duration_ms.toFixed(1)}ms</span>
             </div>
             <div class="overflow-hidden">
-              <div class="truncate select-text text-zinc-200" title={e.query}>{e.query}</div>
-              <div class="flex items-center gap-2 text-[10px] text-zinc-500">
+              <div class="truncate select-text text-fg" title={e.query}>{e.query}</div>
+              <div class="flex items-center gap-2 text-[10px] text-faint">
                 {#if e.connection_name}
                   <span class="flex items-center gap-1"><Database class="w-2.5 h-2.5" />{e.connection_name}</span>
                 {/if}

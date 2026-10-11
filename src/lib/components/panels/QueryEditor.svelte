@@ -2,17 +2,20 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import { api } from '$lib/api';
   import type { ExplainResult, ExplainStep, QueryResultData } from '$lib/types';
-  import { Play, Download, Clock, CheckCircle2, Network, AlertTriangle, ShieldAlert, BookMarked, Trash2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-svelte';
-  import { firstVerb, isWriteStatement, rowsToCsv } from '$lib/utils/sql';
+  import { Play, Download, Clock, CheckCircle2, Network, AlertTriangle, ShieldAlert, BookMarked, Trash2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Settings, X } from 'lucide-svelte';
+  import { firstVerb, rowsToCsv } from '$lib/utils/sql';
+  import { withProdGuard } from '$lib/api/approval';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { confirmDialog } from '$lib/stores/confirm.svelte';
   import { onMount } from 'svelte';
   import { EditorView, basicSetup } from 'codemirror';
   import { sql } from '@codemirror/lang-sql';
   import { oneDark } from '@codemirror/theme-one-dark';
+  import { theme } from '$lib/stores/theme.svelte';
   import { keymap } from '@codemirror/view';
 
-  let { initialQuery = 'SELECT * FROM users LIMIT 50;' }: { initialQuery?: string } = $props();
+  import type { WorkspaceTab } from '$lib/types';
+
+  let { tab }: { tab: WorkspaceTab } = $props();
 
   let editorContainer: HTMLDivElement;
   let editorView: EditorView | null = null;
@@ -21,6 +24,42 @@
   let result = $state<QueryResultData | null>(null);
   let plan = $state<ExplainResult | null>(null);
   let errorMsg = $state<string | null>(null);
+
+  // AI assistant
+  let aiPrompt = $state('');
+  let aiBusy = $state(false);
+  let aiResult = $state<string | null>(null);
+  let aiError = $state<string | null>(null);
+
+  async function generateWithAi() {
+    const connId = workspace.activeConnection?.id;
+    if (!connId || !aiPrompt.trim() || aiBusy) return;
+    aiBusy = true;
+    aiError = null;
+    try {
+      const res = await api.aiGenerate(connId, aiPrompt.trim(), getExecutableText());
+      aiResult = res.sql;
+    } catch (err: any) {
+      aiError = String(err);
+      aiResult = null;
+    } finally {
+      aiBusy = false;
+    }
+  }
+
+  /** Insert generated SQL at the cursor, or replace the whole document. */
+  function applyAiSql(mode: 'insert' | 'replace') {
+    if (!editorView || !aiResult) return;
+    if (mode === 'replace') {
+      editorView.dispatch({ changes: { from: 0, to: editorView.state.doc.length, insert: aiResult } });
+    } else {
+      const sel = editorView.state.selection.main;
+      editorView.dispatch({ changes: { from: sel.from, to: sel.to, insert: aiResult } });
+    }
+    aiResult = null;
+    aiPrompt = '';
+    editorView.focus();
+  }
 
   // Result pagination (client-side: executeQuery returns the full result set at once)
   let pageSize = $state(100);
@@ -83,12 +122,19 @@
     ]);
 
     editorView = new EditorView({
-      doc: initialQuery,
+      doc: tab.queryText ?? '',
       extensions: [
         basicSetup,
         sql({ schema: completionSchema(), upperCaseKeywords: true }),
-        oneDark,
+        ...(theme.current === 'dark' ? [oneDark] : []),
         runKeymap,
+        // Keep the draft in tab state so workspace-level unsaved-work
+        // checks (switch/disconnect/close) see edits made here.
+        EditorView.updateListener.of((u) => {
+          if (u.docChanged) {
+            workspace.updateTabDraft(tab.id, u.state.doc.toString());
+          }
+        }),
       ],
       parent: editorContainer,
     });
@@ -111,27 +157,16 @@
     const text = getExecutableText();
     if (!text.trim()) return;
 
-    // Production write guard: write/DDL on production-tagged connection needs confirmation.
-    if (
-      workspace.activeConnection.environment === 'production' &&
-      isWriteStatement(text)
-    ) {
-      const ok = await confirmDialog.ask({
-        title: t('editor.prod_guard'),
-        message: t('editor.prod_confirm', {
-          name: workspace.activeConnection.name,
-          sql: text.slice(0, 300),
-        }),
-        danger: true,
-      });
-      if (!ok) return;
-    }
-
+    // Production writes are confirmed through the backend challenge — the
+    // server analyzes the whole batch and issues a one-shot approval token
+    // bound to this exact statement.
     isExecuting = true;
     errorMsg = null;
     plan = null;
     try {
-      result = await api.executeQuery(workspace.activeConnection.id, text);
+      result = await withProdGuard((tok) =>
+        api.executeQuery(workspace.activeConnection!.id, text, tok)
+      );
       page = 1;
       await workspace.refreshLogs();
       await workspace.refreshTables();
@@ -188,14 +223,14 @@
 
 {#snippet planNode(step: ExplainStep, depth: number)}
   <div class="flex items-start gap-2 py-0.5" style={`padding-left: ${depth * 16}px`}>
-    <span class="text-zinc-600 shrink-0 select-none">{depth > 0 ? '↳' : '●'}</span>
+    <span class="text-faint shrink-0 select-none">{depth > 0 ? '↳' : '●'}</span>
     <span
       class={`font-mono ${
         step.detail.toUpperCase().includes('SCAN') && !step.detail.toUpperCase().includes('USING INDEX')
           ? 'text-amber-300'
           : step.detail.toUpperCase().includes('USING INDEX')
             ? 'text-emerald-300'
-            : 'text-zinc-300'
+            : 'text-fg2'
       }`}
     >
       {step.detail}
@@ -206,9 +241,9 @@
   {/each}
 {/snippet}
 
-<div class="flex-1 flex flex-col h-full bg-[#121214] text-xs select-none overflow-hidden">
+<div class="flex-1 flex flex-col h-full bg-app text-xs select-none overflow-hidden">
   <!-- Query Action Toolbar -->
-  <div class="h-10 border-b border-[#27272a] bg-[#18181b] flex items-center justify-between px-3">
+  <div class="h-10 border-b border-edge bg-panel flex items-center justify-between px-3">
     <div class="flex items-center gap-2">
       <button
         class="flex items-center gap-1.5 px-3 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white font-semibold transition-colors shadow-sm disabled:opacity-50"
@@ -222,7 +257,7 @@
       </button>
 
       <button
-        class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#27272a] hover:bg-[#3f3f46] text-zinc-200 transition-colors border border-[#3f3f46]/50 disabled:opacity-50"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-elevated hover:bg-hover text-fg transition-colors border border-strong/50 disabled:opacity-50"
         onclick={explainCurrentQuery}
         disabled={isExplaining}
         title={t('editor.explain_hint')}
@@ -234,7 +269,7 @@
       <!-- Snippets dropdown -->
       <div class="relative">
         <button
-          class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#27272a] hover:bg-[#3f3f46] text-zinc-200 transition-colors border border-[#3f3f46]/50"
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-elevated hover:bg-hover text-fg transition-colors border border-strong/50"
           onclick={() => (isSnippetOpen = !isSnippetOpen)}
           title={t('editor.snippets_hint')}
         >
@@ -242,13 +277,13 @@
           <span>{t('editor.snippets')}</span>
         </button>
         {#if isSnippetOpen}
-          <div class="absolute left-0 top-8 w-80 rounded-lg border border-[#27272a] bg-[#1c1c20] shadow-2xl z-40 overflow-hidden">
+          <div class="absolute left-0 top-8 w-80 rounded-lg border border-edge bg-elevated shadow-2xl z-40 overflow-hidden">
             <div class="max-h-56 overflow-y-auto p-1.5 space-y-0.5">
               {#if workspace.snippets.length === 0}
-                <div class="p-3 text-zinc-500 italic text-[11px]">{t('editor.no_snippets')}</div>
+                <div class="p-3 text-faint italic text-[11px]">{t('editor.no_snippets')}</div>
               {:else}
                 {#each workspace.snippets as snip}
-                  <div class="group flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-[#27272a] cursor-pointer"
+                  <div class="group flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-hover cursor-pointer"
                     onclick={() => insertSnippet(snip.sql)}
                     onkeydown={(e) => e.key === 'Enter' && insertSnippet(snip.sql)}
                     tabindex="0"
@@ -256,11 +291,11 @@
                     title={t('editor.snippet_insert_hint')}
                   >
                     <div class="flex-1 min-w-0">
-                      <div class="text-zinc-200 font-medium truncate">{snip.name}</div>
-                      <div class="text-[10px] text-zinc-500 font-mono truncate">{snip.sql}</div>
+                      <div class="text-fg font-medium truncate">{snip.name}</div>
+                      <div class="text-[10px] text-faint font-mono truncate">{snip.sql}</div>
                     </div>
                     <button
-                      class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-rose-500/20 text-zinc-500 hover:text-rose-400 shrink-0"
+                      class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-rose-500/20 text-faint hover:text-rose-400 shrink-0"
                       onclick={(e) => { e.stopPropagation(); workspace.deleteSnippet(snip.id); }}
                       title={t('editor.snippet_delete_hint')}
                     >
@@ -271,13 +306,13 @@
               {/if}
             </div>
             <!-- Save current editor content -->
-            <div class="border-t border-[#27272a] p-2 flex gap-1.5 bg-[#18181b]">
+            <div class="border-t border-edge p-2 flex gap-1.5 bg-panel">
               <input
                 type="text"
                 bind:value={snippetName}
                 placeholder={t('editor.snippet_save_ph')}
                 onkeydown={(e) => e.key === 'Enter' && saveCurrentAsSnippet()}
-                class="flex-1 bg-[#121214] border border-[#2e2e33] rounded px-2 py-1 text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-sky-500 text-[11px]"
+                class="flex-1 bg-app border border-edge rounded px-2 py-1 text-fg placeholder-faint focus:outline-none focus:border-sky-500 text-[11px]"
               />
               <button
                 class="px-2.5 py-1 rounded bg-sky-600/80 hover:bg-sky-500 text-white font-medium disabled:opacity-40"
@@ -298,14 +333,14 @@
       {/if}
 
       {#if result}
-        <div class="flex items-center gap-2 text-zinc-400 font-mono text-[11px] ml-2">
+        <div class="flex items-center gap-2 text-muted font-mono text-[11px] ml-2">
           <div class="flex items-center gap-1 text-emerald-400">
             <CheckCircle2 class="w-3.5 h-3.5" />
             <span>{t('editor.success')}</span>
           </div>
           <span>•</span>
           <div class="flex items-center gap-1">
-            <Clock class="w-3 h-3 text-zinc-500" />
+            <Clock class="w-3 h-3 text-faint" />
             <span>{result.execution_time_ms.toFixed(2)} ms</span>
           </div>
           <span>•</span>
@@ -317,7 +352,7 @@
     <!-- Export Button -->
     {#if result && result.rows.length > 0}
       <button
-        class="flex items-center gap-1 px-2.5 py-1 rounded bg-[#27272a] hover:bg-[#3f3f46] text-zinc-200 transition-colors"
+        class="flex items-center gap-1 px-2.5 py-1 rounded bg-elevated hover:bg-hover text-fg transition-colors"
         onclick={exportCsv}
         title={t('editor.export_hint')}
       >
@@ -327,11 +362,65 @@
     {/if}
   </div>
 
+  <!-- AI Assistant bar: prompt → generated SQL preview → insert/replace.
+       The generated SQL lands in the editor so it still flows through
+       review and the production guard like any hand-written query. -->
+  <div class="border-b border-edge bg-panel px-3 py-1.5 flex items-center gap-2">
+    <Sparkles class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+    <input
+      type="text"
+      bind:value={aiPrompt}
+      placeholder={t('ai.prompt_placeholder')}
+      onkeydown={(e) => e.key === 'Enter' && generateWithAi()}
+      class="flex-1 bg-transparent text-fg placeholder-faint focus:outline-none text-[11px] font-mono"
+    />
+    <button
+      class="px-2.5 py-0.5 rounded bg-sky-600/80 hover:bg-sky-500 text-white text-[11px] font-medium transition-colors disabled:opacity-40"
+      onclick={generateWithAi}
+      disabled={aiBusy || !aiPrompt.trim() || !workspace.activeConnection}
+    >
+      {aiBusy ? t('ai.generating') : t('ai.generate')}
+    </button>
+    <button
+      class="p-1 rounded hover:bg-hover text-faint hover:text-fg transition-colors"
+      onclick={() => (workspace.isAiSettingsOpen = true)}
+      title={t('ai.settings_hint')}
+    >
+      <Settings class="w-3.5 h-3.5" />
+    </button>
+  </div>
+
+  {#if aiError || aiResult}
+    <div class="border-b border-edge bg-subtle px-3 py-2 space-y-1.5">
+      {#if aiError}
+        <div class="text-rose-400 text-[11px]">{aiError}</div>
+      {/if}
+      {#if aiResult}
+        <pre class="font-mono text-[11px] text-fg whitespace-pre-wrap select-text">{aiResult}</pre>
+        <div class="flex items-center gap-2">
+          <button
+            class="px-2 py-0.5 rounded bg-sky-600/80 hover:bg-sky-500 text-white text-[11px] font-medium"
+            onclick={() => applyAiSql('insert')}
+          >{t('ai.insert')}</button>
+          <button
+            class="px-2 py-0.5 rounded bg-elevated hover:bg-hover text-fg text-[11px] border border-strong/40"
+            onclick={() => applyAiSql('replace')}
+          >{t('ai.replace')}</button>
+          <span class="flex-1"></span>
+          <span class="text-[10px] text-faint">{t('ai.run_hint')}</span>
+          <button class="p-0.5 text-faint hover:text-fg" onclick={() => (aiResult = null)} title={t('ai.dismiss')}>
+            <X class="w-3 h-3" />
+          </button>
+        </div>
+      {/if}
+    </div>
+  {/if}
+
   <!-- CodeMirror Container (Top 40%) -->
-  <div class="h-48 border-b border-[#27272a] bg-[#1e1e24] overflow-hidden" bind:this={editorContainer}></div>
+  <div class="h-48 border-b border-edge bg-elevated overflow-hidden" bind:this={editorContainer}></div>
 
   <!-- Result Area (Bottom 60%) -->
-  <div class="flex-1 overflow-auto bg-[#121214] relative">
+  <div class="flex-1 overflow-auto bg-app relative">
     {#if isExecuting && result}
       <!-- Re-run progress bar: keeps the previous result visible while executing -->
       <div class="absolute top-0 left-0 right-0 h-0.5 z-20 overflow-hidden">
@@ -346,7 +435,7 @@
     {:else if plan}
       <!-- Explain Plan / Query Audit view -->
       <div class="p-4 space-y-3">
-        <div class="flex items-center gap-2 font-semibold text-zinc-200">
+        <div class="flex items-center gap-2 font-semibold text-fg">
           <Network class="w-4 h-4 text-violet-400" />
           <span>{t('editor.plan_title')}</span>
           {#if planSeverity === 'warn'}
@@ -373,9 +462,9 @@
         </div>
 
         <!-- Plan tree -->
-        <div class="rounded-lg border border-[#27272a] bg-[#141416] p-3 font-mono text-[11px]">
+        <div class="rounded-lg border border-edge bg-subtle p-3 font-mono text-[11px]">
           {#if plan.steps.length === 0}
-            <div class="text-zinc-500 italic">{t('editor.no_plan')}</div>
+            <div class="text-faint italic">{t('editor.no_plan')}</div>
           {:else}
             {#each plan.steps as step}
               {@render planNode(step, 0)}
@@ -383,7 +472,7 @@
           {/if}
         </div>
 
-        <div class="flex items-center gap-3 text-[10px] text-zinc-500 font-mono">
+        <div class="flex items-center gap-3 text-[10px] text-faint font-mono">
           <span>full_scan: {plan.has_full_scan ? t('common.yes') : t('common.no')}</span>
           <span>uses_index: {plan.uses_index ? t('common.yes') : t('common.no')}</span>
           <span>temp_btree: {plan.uses_temp_btree ? t('common.yes') : t('common.no')}</span>
@@ -392,19 +481,19 @@
     {:else if isExecuting}
       <!-- First-run loading skeleton: shimmer rows shaped like the result grid -->
       <div class="w-full font-mono text-[11px] animate-pulse" role="status" aria-label={t('editor.running')}>
-        <div class="flex border-b border-[#27272a] bg-[#18181b]">
+        <div class="flex border-b border-edge bg-panel">
           <div class="w-10 px-2 py-2"></div>
           {#each Array(6) as _}
-            <div class="flex-1 px-3 py-2"><div class="h-2.5 w-2/3 rounded bg-[#27272a]"></div></div>
+            <div class="flex-1 px-3 py-2"><div class="h-2.5 w-2/3 rounded bg-elevated"></div></div>
           {/each}
         </div>
         {#each Array(14) as _, r}
-          <div class="flex border-b border-[#1f1f23]">
+          <div class="flex border-b border-edge">
             <div class="w-10 px-2 py-2"></div>
             {#each Array(6) as _, c}
               <div class="flex-1 px-3 py-2">
                 <div
-                  class={`h-2.5 rounded ${r % 2 === 0 ? 'bg-[#1a1a1e]' : 'bg-[#1e1e22]'}`}
+                  class={`h-2.5 rounded ${r % 2 === 0 ? 'bg-subtle' : 'bg-elevated'}`}
                   style={`width: ${45 + ((r * 7 + c * 13) % 45)}%`}
                 ></div>
               </div>
@@ -413,28 +502,28 @@
         {/each}
       </div>
     {:else if !result}
-      <div class="p-8 text-center text-zinc-600 font-mono text-xs">
+      <div class="p-8 text-center text-faint font-mono text-xs">
         {t('editor.hint_run')}
         <div class="mt-2 text-[10px]">{t('editor.hint_select')}</div>
       </div>
     {:else}
       <table class="w-full text-left border-collapse font-mono text-[11px]">
-        <thead class="sticky top-0 bg-[#18181b] border-b border-[#27272a] text-zinc-400 z-10">
+        <thead class="sticky top-0 bg-panel border-b border-edge text-muted z-10">
           <tr>
-            <th class="w-10 px-2 py-1.5 border-r border-[#27272a] text-center text-zinc-600">#</th>
+            <th class="w-10 px-2 py-1.5 border-r border-edge text-center text-faint">#</th>
             {#each result.columns as col}
-              <th class="px-3 py-1.5 border-r border-[#27272a] text-zinc-200 font-semibold truncate">{col}</th>
+              <th class="px-3 py-1.5 border-r border-edge text-fg font-semibold truncate">{col}</th>
             {/each}
           </tr>
         </thead>
         <tbody>
           {#each pagedRows as row, idx (idx)}
-            <tr class="border-b border-[#1f1f23] hover:bg-[#1a1a1e]">
-              <td class="px-2 py-1.5 border-r border-[#27272a] text-center text-zinc-600 text-[10px]">{(currentPage - 1) * pageSize + idx + 1}</td>
+            <tr class="border-b border-edge hover:bg-hover">
+              <td class="px-2 py-1.5 border-r border-edge text-center text-faint text-[10px]">{(currentPage - 1) * pageSize + idx + 1}</td>
               {#each row as cell}
-                <td class="px-3 py-1.5 border-r border-[#27272a] text-zinc-300 truncate max-w-xs select-text">
+                <td class="px-3 py-1.5 border-r border-edge text-fg2 truncate max-w-xs select-text">
                   {#if cell === null}
-                    <span class="text-zinc-600 italic">NULL</span>
+                    <span class="text-faint italic">NULL</span>
                   {:else}
                     {cell}
                   {/if}
@@ -449,9 +538,9 @@
 
   <!-- Status bar: pagination -->
   {#if result && !plan}
-    <div class="h-8 shrink-0 border-t border-[#27272a] bg-[#18181b] flex items-center justify-between px-3 text-[10px] font-mono text-zinc-500">
+    <div class="h-8 shrink-0 border-t border-edge bg-panel flex items-center justify-between px-3 text-[10px] font-mono text-faint">
       <div class="flex items-center gap-3">
-        <span class="text-zinc-400">{t('common.rows', { count: result.rows.length.toLocaleString() })}</span>
+        <span class="text-muted">{t('common.rows', { count: result.rows.length.toLocaleString() })}</span>
         {#if isExecuting}
           <span class="text-sky-400 flex items-center gap-1">
             <span class="w-2.5 h-2.5 border border-sky-500 border-t-transparent rounded-full animate-spin inline-block"></span>
@@ -462,7 +551,7 @@
 
       <div class="flex items-center gap-1">
         <select
-          class="bg-[#121214] border border-[#2e2e33] rounded px-1.5 py-0.5 text-zinc-300 focus:outline-none focus:border-sky-500"
+          class="bg-app border border-edge rounded px-1.5 py-0.5 text-fg2 focus:outline-none focus:border-sky-500"
           title={t('grid.rows_per_page')}
           value={pageSize}
           onchange={(e) => setPageSize(Number((e.target as HTMLSelectElement).value))}
@@ -473,7 +562,7 @@
         </select>
 
         <button
-          class="p-1 rounded hover:bg-[#27272a] disabled:opacity-30"
+          class="p-1 rounded hover:bg-hover disabled:opacity-30"
           disabled={currentPage <= 1 || isExecuting}
           onclick={() => goToPage(1)}
           title={t('grid.first_page')}
@@ -481,16 +570,16 @@
           <ChevronsLeft class="w-3.5 h-3.5" />
         </button>
         <button
-          class="p-1 rounded hover:bg-[#27272a] disabled:opacity-30"
+          class="p-1 rounded hover:bg-hover disabled:opacity-30"
           disabled={currentPage <= 1 || isExecuting}
           onclick={() => goToPage(currentPage - 1)}
           title={t('grid.prev_page')}
         >
           <ChevronLeft class="w-3.5 h-3.5" />
         </button>
-        <span class="px-1 text-zinc-400">{t('grid.page_of', { page: currentPage, total: totalPages })}</span>
+        <span class="px-1 text-muted">{t('grid.page_of', { page: currentPage, total: totalPages })}</span>
         <button
-          class="p-1 rounded hover:bg-[#27272a] disabled:opacity-30"
+          class="p-1 rounded hover:bg-hover disabled:opacity-30"
           disabled={currentPage >= totalPages || isExecuting}
           onclick={() => goToPage(currentPage + 1)}
           title={t('grid.next_page')}
@@ -498,7 +587,7 @@
           <ChevronRight class="w-3.5 h-3.5" />
         </button>
         <button
-          class="p-1 rounded hover:bg-[#27272a] disabled:opacity-30"
+          class="p-1 rounded hover:bg-hover disabled:opacity-30"
           disabled={currentPage >= totalPages || isExecuting}
           onclick={() => goToPage(totalPages)}
           title={t('grid.last_page')}

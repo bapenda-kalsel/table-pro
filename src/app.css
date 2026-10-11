@@ -1,22 +1,71 @@
 @import "tailwindcss";
 
+/*
+ * Semantic design tokens. Components use utilities bound to these vars
+ * (bg-app, bg-panel, text-fg, border-edge, ...) — never raw hex — so
+ * `data-theme` switches the whole app without touching components.
+ */
+@theme inline {
+  --color-app: var(--bg-app);
+  --color-panel: var(--bg-panel);
+  --color-subtle: var(--bg-subtle);
+  --color-elevated: var(--bg-elevated);
+  --color-input: var(--bg-input);
+  --color-hover: var(--bg-hover);
+  --color-edge: var(--border-edge);
+  --color-strong: var(--border-strong);
+  --color-fg: var(--text-fg);
+  --color-fg2: var(--text-fg2);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-scrollbar: var(--scrollbar);
+}
+
 @layer base {
-  :root {
-    --bg-primary: #18181b;
-    --bg-secondary: #27272a;
-    --bg-tertiary: #3f3f46;
-    --border-color: #3f3f46;
-    --text-primary: #f4f4f5;
+  :root,
+  [data-theme="dark"] {
+    --bg-app: #121214;
+    --bg-panel: #18181b;
+    --bg-subtle: #141416;
+    --bg-elevated: #1e1e24;
+    --bg-input: #141416;
+    --bg-hover: #2b2b31;
+    --border-edge: #27272a;
+    --border-strong: #3f3f46;
+    --text-fg: #e4e4e7;
+    --text-fg2: #d4d4d8;
     --text-muted: #a1a1aa;
-    --accent-blue: #38bdf8;
-    --accent-green: #4ade80;
-    --accent-yellow: #facc15;
-    --accent-red: #f87171;
+    --text-faint: #71717a;
+    --accent: #38bdf8;
+    --accent-strong: #0284c7;
+    --scrollbar: #3f3f46;
+    color-scheme: dark;
+  }
+
+  [data-theme="light"] {
+    --bg-app: #f4f4f5;
+    --bg-panel: #ffffff;
+    --bg-subtle: #fafafa;
+    --bg-elevated: #f4f4f5;
+    --bg-input: #ffffff;
+    --bg-hover: #e4e4e7;
+    --border-edge: #e4e4e7;
+    --border-strong: #d4d4d8;
+    --text-fg: #18181b;
+    --text-fg2: #27272a;
+    --text-muted: #52525b;
+    --text-faint: #a1a1aa;
+    --accent: #0284c7;
+    --accent-strong: #0369a1;
+    --scrollbar: #d4d4d8;
+    color-scheme: light;
   }
 
   body {
-    background-color: #121214;
-    color: #e4e4e7;
+    background-color: var(--bg-app);
+    color: var(--text-fg);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     user-select: none;
     -webkit-user-select: none;
@@ -24,21 +73,18 @@
   }
 }
 
-/* Custom TablePlus style scrollbar */
+/* Themed scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #18181b;
+  background: var(--bg-panel);
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+  background: var(--scrollbar);
   border-radius: 4px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: var(--border-strong);
 }

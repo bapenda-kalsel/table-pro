@@ -1,124 +1,92 @@
 //! Data-plane commands: table data browsing, ad-hoc SQL execution,
-//! query plans, and staged-change preview/commit.
+//! query plans, and staged-change preview/commit. Transport only —
+//! policy and orchestration live in services.
 
+use crate::errors::AppResult;
 use crate::models::{
-    ExplainResult, QueryResultData, StagedCommitPayload, StagedDiffSummary,
+    ExplainResult, QueryResultData, StagedCommitPayload, StagedDiffSummary, TableDataQuery,
 };
+use crate::services::security::{self, SqlRisk};
 use crate::state::AppState;
-use std::time::Instant;
 use tauri::State;
 
 #[tauri::command]
 pub async fn get_table_data(
     connection_id: String,
-    table: String,
-    limit: u32,
-    offset: u32,
-    filter: Option<String>,
-    sort_by: Option<String>,
-    sort_dir: Option<String>,
+    query: TableDataQuery,
     state: State<'_, AppState>,
-) -> Result<QueryResultData, String> {
-    let drivers = state.drivers.read().await;
-    let driver = drivers
-        .get(&connection_id)
-        .ok_or_else(|| "Not connected to database".to_string())?;
+) -> AppResult<QueryResultData> {
+    let guard = state.connections.acquire(&connection_id).await?;
 
-    let sql_log = format!(
+    let label = format!(
         "SELECT * FROM \"{}\" {} LIMIT {} OFFSET {}",
-        table,
-        filter
+        query.table,
+        query
+            .filter
             .as_ref()
             .map(|f| format!("WHERE {}", f))
             .unwrap_or_default(),
-        limit,
-        offset
+        query.limit,
+        query.offset
     );
 
-    let start = Instant::now();
-    match driver
-        .get_table_data(
-            &table,
-            limit,
-            offset,
-            filter.as_deref(),
-            sort_by.as_deref(),
-            sort_dir.as_deref(),
+    state
+        .audit
+        .run(
+            &guard.conn,
+            label,
+            guard.conn.driver.get_table_data(
+                &query.table,
+                query.limit,
+                query.offset,
+                query.filter.as_deref(),
+                query.sort_by.as_deref(),
+                query.sort_dir.as_deref(),
+            ),
+            |d| Some(d.affected_rows),
         )
         .await
-    {
-        Ok(data) => {
-            let duration = start.elapsed().as_secs_f64() * 1000.0;
-            state
-                .log_sql(
-                    Some(connection_id),
-                    sql_log,
-                    duration,
-                    false,
-                    None,
-                    Some(data.affected_rows),
-                )
-                .await;
-            Ok(data)
-        }
-        Err(e) => {
-            let duration = start.elapsed().as_secs_f64() * 1000.0;
-            state
-                .log_sql(
-                    Some(connection_id),
-                    sql_log,
-                    duration,
-                    true,
-                    Some(e.clone()),
-                    None,
-                )
-                .await;
-            Err(e)
-        }
-    }
 }
 
 #[tauri::command]
 pub async fn execute_query(
     connection_id: String,
     sql: String,
+    confirm_token: Option<String>,
     state: State<'_, AppState>,
-) -> Result<QueryResultData, String> {
-    let drivers = state.drivers.read().await;
-    let driver = drivers
-        .get(&connection_id)
-        .ok_or_else(|| "Not connected to database".to_string())?;
+) -> AppResult<QueryResultData> {
+    let guard = state.connections.acquire(&connection_id).await?;
+    // Backend-enforced production guard: the whole batch is analyzed, and
+    // anything not provably read-only needs a one-shot approval bound to
+    // this exact SQL on this exact session.
+    if security::analyze_sql(&sql, &guard.conn.driver_type) != SqlRisk::Read {
+        state.approvals.require(
+            &guard.conn,
+            &sql,
+            confirm_token.as_deref(),
+            format!(
+                "This statement can modify data or schema:\n\n{}",
+                truncate_for_display(&sql)
+            ),
+        )?;
+    }
+    state
+        .audit
+        .run(
+            &guard.conn,
+            sql.clone(),
+            guard.conn.driver.execute_query(&sql),
+            |d| Some(d.affected_rows),
+        )
+        .await
+}
 
-    let start = Instant::now();
-    match driver.execute_query(&sql).await {
-        Ok(data) => {
-            let duration = start.elapsed().as_secs_f64() * 1000.0;
-            state
-                .log_sql(
-                    Some(connection_id),
-                    sql,
-                    duration,
-                    false,
-                    None,
-                    Some(data.affected_rows),
-                )
-                .await;
-            Ok(data)
-        }
-        Err(e) => {
-            let duration = start.elapsed().as_secs_f64() * 1000.0;
-            state
-                .log_sql(
-                    Some(connection_id),
-                    sql,
-                    duration,
-                    true,
-                    Some(e.clone()),
-                    None,
-                )
-                .await;
-            Err(e)
-        }
+fn truncate_for_display(s: &str) -> String {
+    const MAX: usize = 400;
+    if s.len() <= MAX {
+        s.to_string()
+    } else {
+        format!("{}…", &s[..MAX])
     }
 }
 
@@ -127,98 +95,56 @@ pub async fn explain_query(
     connection_id: String,
     sql: String,
     state: State<'_, AppState>,
-) -> Result<ExplainResult, String> {
-    let drivers = state.drivers.read().await;
-    let driver = drivers
-        .get(&connection_id)
-        .ok_or_else(|| "Not connected to database".to_string())?;
-
-    let start = Instant::now();
-    match driver.explain_query(&sql).await {
-        Ok(plan) => {
-            let duration = start.elapsed().as_secs_f64() * 1000.0;
-            state
-                .log_sql(
-                    Some(connection_id),
-                    format!("EXPLAIN QUERY PLAN {}", sql.trim()),
-                    duration,
-                    false,
-                    None,
-                    None,
-                )
-                .await;
-            Ok(plan)
-        }
-        Err(e) => {
-            let duration = start.elapsed().as_secs_f64() * 1000.0;
-            state
-                .log_sql(
-                    Some(connection_id),
-                    format!("EXPLAIN QUERY PLAN {}", sql.trim()),
-                    duration,
-                    true,
-                    Some(e.clone()),
-                    None,
-                )
-                .await;
-            Err(e)
-        }
-    }
+) -> AppResult<ExplainResult> {
+    let guard = state.connections.acquire(&connection_id).await?;
+    state
+        .audit
+        .run(
+            &guard.conn,
+            format!("EXPLAIN QUERY PLAN {}", sql.trim()),
+            guard.conn.driver.explain_query(&sql),
+            |_| None,
+        )
+        .await
 }
 
 #[tauri::command]
 pub async fn preview_staged_changes(
     payload: StagedCommitPayload,
     state: State<'_, AppState>,
-) -> Result<StagedDiffSummary, String> {
-    let drivers = state.drivers.read().await;
-    let driver = drivers
-        .get(&payload.connection_id)
-        .ok_or_else(|| "Not connected to database".to_string())?;
-
-    driver.preview_staged_changes(&payload).await
+) -> AppResult<StagedDiffSummary> {
+    let guard = state.connections.acquire(&payload.connection_id).await?;
+    guard.conn.driver.preview_staged_changes(&payload).await
 }
 
 #[tauri::command]
 pub async fn commit_staged_changes(
     payload: StagedCommitPayload,
+    confirm_token: Option<String>,
     state: State<'_, AppState>,
-) -> Result<QueryResultData, String> {
-    let drivers = state.drivers.read().await;
-    let driver = drivers
-        .get(&payload.connection_id)
-        .ok_or_else(|| "Not connected to database".to_string())?;
-
-    let conn_id = payload.connection_id.clone();
-    let start = Instant::now();
-    match driver.commit_staged_changes(payload).await {
-        Ok(res) => {
-            let duration = start.elapsed().as_secs_f64() * 1000.0;
-            state
-                .log_sql(
-                    Some(conn_id),
-                    "COMMIT STAGED CHANGES".to_string(),
-                    duration,
-                    false,
-                    None,
-                    Some(res.affected_rows),
-                )
-                .await;
-            Ok(res)
-        }
-        Err(e) => {
-            let duration = start.elapsed().as_secs_f64() * 1000.0;
-            state
-                .log_sql(
-                    Some(conn_id),
-                    "COMMIT STAGED CHANGES".to_string(),
-                    duration,
-                    true,
-                    Some(e.clone()),
-                    None,
-                )
-                .await;
-            Err(e)
-        }
-    }
+) -> AppResult<QueryResultData> {
+    let guard = state.connections.acquire(&payload.connection_id).await?;
+    // Staged commit is inherently a write — gate before planning.
+    let sig = serde_json::to_string(&payload).unwrap_or_else(|_| payload.table_name.clone());
+    state.approvals.require(
+        &guard.conn,
+        &sig,
+        confirm_token.as_deref(),
+        format!(
+            "Commit staged changes to table '{}' ({} inserts, {} updates, {} deletes)?",
+            payload.table_name,
+            payload.inserts.len(),
+            payload.updates.len(),
+            payload.deletes.len()
+        ),
+    )?;
+    state
+        .audit
+        .run(
+            &guard.conn,
+            "COMMIT STAGED CHANGES".to_string(),
+            guard.conn.driver.commit_staged_changes(payload),
+            |r| Some(r.affected_rows),
+        )
+        .await
 }

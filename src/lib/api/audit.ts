@@ -98,4 +98,10 @@ export const auditApi = {
     if (!isTauri) return `/mock/exports/audit-20260101-000000.${format}`;
     return invoke('export_audit_log', { format });
   },
+
+  /** True when on-disk audit persistence has failed — the trail may be incomplete. */
+  async isStorageDegraded(): Promise<boolean> {
+    if (!isTauri) return false;
+    return invoke('audit_storage_degraded');
+  },
 };

@@ -20,6 +20,21 @@ pub enum EnvironmentTag {
     Production,
 }
 
+impl EnvironmentTag {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Local => "local",
+            Self::Staging => "staging",
+            Self::Production => "production",
+        }
+    }
+
+    /// Production connections get the backend-enforced write confirmation.
+    pub fn requires_write_confirmation(&self) -> bool {
+        matches!(self, Self::Production)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectionProfile {
     pub id: String,
@@ -32,7 +47,12 @@ pub struct ConnectionProfile {
     pub username: Option<String>,
     // Password is NOT stored here; it is fetched from OS Keychain
     pub file_path: Option<String>, // For SQLite
+    /// TLS mode for TCP drivers: disable | prefer | require | verify_ca |
+    /// verify_full. `None` means "never configured" — legacy profiles must
+    /// pick explicitly before connecting (no silent downgrade).
     pub ssl_mode: Option<String>,
+    /// Optional custom CA certificate path (PEM) for private-CA servers.
+    pub ssl_ca_cert_path: Option<String>,
     pub created_at: Option<String>,
 }
 
@@ -116,6 +136,29 @@ pub struct TriggerInfo {
     pub name: String,
     pub table_name: String,
     pub sql: String,
+}
+
+/// Data-grid browse request: table + pagination + optional filter/sort.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableDataQuery {
+    pub table: String,
+    pub limit: u32,
+    pub offset: u32,
+    pub filter: Option<String>,
+    pub sort_by: Option<String>,
+    pub sort_dir: Option<String>,
+}
+
+/// Visual-relations input: identity of the FOREIGN KEY to create.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForeignKeySpec {
+    pub constraint_name: String,
+    pub table: String,
+    pub column: String,
+    pub ref_table: String,
+    pub ref_column: String,
+    pub on_delete: String,
+    pub on_update: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

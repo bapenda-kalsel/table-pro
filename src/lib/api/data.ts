@@ -34,16 +34,22 @@ export const dataApi = {
     }
     return invoke('get_table_data', {
       connectionId,
-      table,
-      limit,
-      offset,
-      filter: filter || null,
-      sortBy: sortBy || null,
-      sortDir: sortDir || null,
+      query: {
+        table,
+        limit,
+        offset,
+        filter: filter || null,
+        sort_by: sortBy || null,
+        sort_dir: sortDir || null,
+      },
     });
   },
 
-  async executeQuery(connectionId: string, sql: string): Promise<QueryResultData> {
+  async executeQuery(
+    connectionId: string,
+    sql: string,
+    confirmToken?: string,
+  ): Promise<QueryResultData> {
     if (!isTauri) {
       return {
         columns: ['result'],
@@ -54,7 +60,7 @@ export const dataApi = {
         total_rows: 1,
       };
     }
-    return invoke('execute_query', { connectionId, sql });
+    return invoke('execute_query', { connectionId, sql, confirmToken: confirmToken ?? null });
   },
 
   async explainQuery(connectionId: string, sql: string): Promise<ExplainResult> {
@@ -84,7 +90,10 @@ export const dataApi = {
     return invoke('preview_staged_changes', { payload });
   },
 
-  async commitStagedChanges(payload: StagedCommitPayload): Promise<QueryResultData> {
+  async commitStagedChanges(
+    payload: StagedCommitPayload,
+    confirmToken?: string,
+  ): Promise<QueryResultData> {
     if (!isTauri) {
       return {
         columns: ['Committed Statements', 'Total Affected'],
@@ -95,6 +104,6 @@ export const dataApi = {
         total_rows: 1,
       };
     }
-    return invoke('commit_staged_changes', { payload });
+    return invoke('commit_staged_changes', { payload, confirmToken: confirmToken ?? null });
   },
 };

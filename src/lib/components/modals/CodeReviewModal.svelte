@@ -19,22 +19,22 @@
 
 {#if workspace.isCodeReviewModalOpen && workspace.stagedDiff}
   <div class="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-    <div class="w-[680px] max-h-[85vh] bg-[#18181b] border border-[#27272a] rounded-xl shadow-2xl flex flex-col text-xs overflow-hidden select-none">
+    <div class="w-[680px] max-h-[85vh] bg-panel border border-edge rounded-xl shadow-2xl flex flex-col text-xs overflow-hidden select-none">
       <!-- Modal Header -->
-      <div class="p-4 border-b border-[#27272a] flex items-center justify-between bg-[#141416]">
+      <div class="p-4 border-b border-edge flex items-center justify-between bg-subtle">
         <div class="flex items-center gap-2.5">
           <div class="p-2 rounded bg-sky-500/20 text-sky-400">
             <Code class="w-4 h-4" />
           </div>
           <div>
-            <h3 class="font-bold text-zinc-100 text-sm">{t('review.title')}</h3>
-            <p class="text-zinc-400 text-[11px]">
+            <h3 class="font-bold text-fg text-sm">{t('review.title')}</h3>
+            <p class="text-muted text-[11px]">
               {t('review.subtitle')}
             </p>
           </div>
         </div>
         <button
-          class="p-1 rounded hover:bg-[#27272a] text-zinc-400 hover:text-zinc-200"
+          class="p-1 rounded hover:bg-hover text-muted hover:text-fg"
           onclick={() => (workspace.isCodeReviewModalOpen = false)}
         >
           <X class="w-4 h-4" />
@@ -50,17 +50,17 @@
       {/if}
 
       <!-- Stats Summary Banner -->
-      <div class="px-4 py-2.5 border-b border-[#27272a] bg-[#1a1a1f] flex items-center gap-4 text-[11px] font-mono">
+      <div class="px-4 py-2.5 border-b border-edge bg-subtle flex items-center gap-4 text-[11px] font-mono">
         <span class="text-emerald-400 font-semibold">{t('review.inserts', { count: workspace.stagedDiff.insert_count })}</span>
         <span class="text-amber-400 font-semibold">{t('review.updates', { count: workspace.stagedDiff.update_count })}</span>
         <span class="text-rose-400 font-semibold">{t('review.deletes', { count: workspace.stagedDiff.delete_count })}</span>
-        <span class="text-zinc-500 ml-auto font-sans text-[10px]">{t('review.atomic')}</span>
+        <span class="text-faint ml-auto font-sans text-[10px]">{t('review.atomic')}</span>
       </div>
 
       <!-- SQL Statements List -->
-      <div class="flex-1 overflow-y-auto p-4 space-y-2 font-mono text-[11px] bg-[#121214]">
+      <div class="flex-1 overflow-y-auto p-4 space-y-2 font-mono text-[11px] bg-app">
         {#if workspace.stagedDiff.generated_sql.length === 0}
-          <div class="text-zinc-500 italic p-4 text-center">{t('review.empty')}</div>
+          <div class="text-faint italic p-4 text-center">{t('review.empty')}</div>
         {:else}
           {#each workspace.stagedDiff.generated_sql as sql, i}
             {@const isInsert = sql.startsWith('INSERT')}
@@ -75,7 +75,7 @@
                   ? 'bg-amber-950/20 border-amber-900/40 text-amber-300'
                   : isDelete
                   ? 'bg-rose-950/20 border-rose-900/40 text-rose-300'
-                  : 'bg-[#18181b] border-[#27272a] text-zinc-200'
+                  : 'bg-panel border-edge text-fg'
               }`}
             >
               <div class="flex items-center gap-2 mb-1 opacity-60 text-[10px]">
@@ -89,9 +89,9 @@
       </div>
 
       <!-- Modal Footer -->
-      <div class="p-3 border-t border-[#27272a] bg-[#18181b] flex items-center justify-between">
+      <div class="p-3 border-t border-edge bg-panel flex items-center justify-between">
         <button
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#27272a] hover:bg-[#3f3f46] text-zinc-300 font-medium transition-colors"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded bg-elevated hover:bg-hover text-fg2 font-medium transition-colors"
           onclick={handleDiscard}
         >
           <RotateCcw class="w-3.5 h-3.5" />
@@ -100,7 +100,7 @@
 
         <div class="flex items-center gap-2">
           <button
-            class="px-3 py-1.5 rounded hover:bg-[#27272a] text-zinc-400 hover:text-zinc-200"
+            class="px-3 py-1.5 rounded hover:bg-hover text-muted hover:text-fg"
             onclick={() => (workspace.isCodeReviewModalOpen = false)}
           >
             {t('common.cancel')}

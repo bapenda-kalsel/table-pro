@@ -51,14 +51,14 @@
   onkeydown={(e) => e.key === 'Escape' && (ctxMenu = null)}
 />
 
-<div class="h-9 bg-[#18181b] border-b border-[#27272a] flex items-center px-1 overflow-x-auto text-xs select-none">
+<div class="h-9 bg-panel border-b border-edge flex items-center px-1 overflow-x-auto text-xs select-none">
   {#each workspace.tabs as tab (tab.id)}
     {@const stagedCount = tab.tableName ? workspace.getTotalStagedCount(tab.tableName) : 0}
     <div
-      class={`group flex items-center gap-2 px-3 py-1.5 h-full border-r border-[#27272a] cursor-pointer transition-colors max-w-[200px] truncate ${
+      class={`group flex items-center gap-2 px-3 py-1.5 h-full border-r border-edge cursor-pointer transition-colors max-w-[200px] truncate ${
         workspace.activeTabId === tab.id
-          ? 'bg-[#121214] text-zinc-100 font-medium border-t-2 border-t-sky-500'
-          : 'bg-[#18181b] text-zinc-400 hover:bg-[#1c1c1f] hover:text-zinc-200'
+          ? 'bg-app text-fg font-medium border-t-2 border-t-sky-500'
+          : 'bg-panel text-muted hover:bg-elevated hover:text-fg'
       }`}
       onclick={() => (workspace.activeTabId = tab.id)}
       oncontextmenu={(e) => openCtxMenu(e, tab.id)}
@@ -91,7 +91,7 @@
 
       <!-- Close Tab Button -->
       <button
-        class="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-[#3f3f46] text-zinc-400 hover:text-zinc-100 transition-opacity ml-1"
+        class="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-hover text-muted hover:text-fg transition-opacity ml-1"
         onclick={(e) => {
           e.stopPropagation();
           requestClose(tab.id);
@@ -105,7 +105,7 @@
 
   <!-- Add Query Tab Button -->
   <button
-    class="p-1.5 ml-1 rounded hover:bg-[#27272a] text-zinc-400 hover:text-zinc-200 transition-colors"
+    class="p-1.5 ml-1 rounded hover:bg-hover text-muted hover:text-fg transition-colors"
     onclick={() => workspace.openQueryTab()}
     title={t('tabbar.new_query_hint')}
   >
@@ -117,21 +117,21 @@
 {#if ctxMenu}
   {@const tabIdx = workspace.tabs.findIndex((x) => x.id === ctxMenu!.tabId)}
   <div
-    class="fixed w-40 rounded-md border border-[#27272a] bg-[#1c1c20] shadow-2xl z-50 p-0.5 space-y-px text-[11px]"
+    class="fixed w-40 rounded-md border border-edge bg-elevated shadow-2xl z-50 p-0.5 space-y-px text-[11px]"
     style={`left: ${ctxMenu.x}px; top: ${ctxMenu.y}px`}
     oncontextmenu={(e) => e.preventDefault()}
     role="menu"
     tabindex="-1"
   >
     <button
-      class="w-full text-left px-2 py-1 rounded text-zinc-200 hover:bg-[#27272a] transition-colors"
+      class="w-full text-left px-2 py-1 rounded text-fg hover:bg-hover transition-colors"
       onclick={() => runCtxAction(requestClose)}
       role="menuitem"
     >
       {t('tabbar.ctx_close')}
     </button>
     <button
-      class="w-full text-left px-2 py-1 rounded text-zinc-200 hover:bg-[#27272a] transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+      class="w-full text-left px-2 py-1 rounded text-fg hover:bg-hover transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
       disabled={workspace.tabs.length <= 1}
       onclick={() => runCtxAction(requestCloseOthers)}
       role="menuitem"
@@ -139,14 +139,14 @@
       {t('tabbar.ctx_close_others')}
     </button>
     <button
-      class="w-full text-left px-2 py-1 rounded text-zinc-200 hover:bg-[#27272a] transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+      class="w-full text-left px-2 py-1 rounded text-fg hover:bg-hover transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
       disabled={tabIdx === -1 || tabIdx >= workspace.tabs.length - 1}
       onclick={() => runCtxAction(requestCloseRight)}
       role="menuitem"
     >
       {t('tabbar.ctx_close_right')}
     </button>
-    <div class="border-t border-[#27272a] my-0.5"></div>
+    <div class="border-t border-edge my-0.5"></div>
     <button
       class="w-full text-left px-2 py-1 rounded text-rose-400 hover:bg-rose-500/15 transition-colors"
       onclick={() => runCtxAction(requestCloseAll)}

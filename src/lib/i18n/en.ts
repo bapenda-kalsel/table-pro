@@ -6,6 +6,7 @@ export const en = {
   'common.cancel': 'Cancel',
   'common.close': 'Close',
   'common.save': 'Save',
+  'common.saving': 'Saving…',
   'common.discard': 'Discard',
   'common.refresh': 'Refresh',
   'common.browse': 'Browse',
@@ -28,6 +29,7 @@ export const en = {
   'titlebar.maintenance_hint': 'Table Maintenance Suite (VACUUM / Integrity - HeidiSQL)',
   'titlebar.console_hint': 'Toggle Real-Time SQL Console (⌘J - HeidiSQL)',
   'titlebar.language_hint': 'Interface language / Bahasa antarmuka',
+  'titlebar.theme_hint': 'Toggle dark / light theme',
 
   // ---------- sidebar ----------
   'sidebar.title': 'Database Objects',
@@ -72,6 +74,14 @@ export const en = {
   'confirm.delete_rows_title': 'Mark rows for deletion?',
   'confirm.delete_rows_msg':
     '{count} selected row(s) will be marked for deletion — they are removed only when you commit.',
+  'confirm.switch_conn_title': 'Discard unsaved work?',
+  'confirm.switch_conn_msg':
+    'Staged changes or unsaved drafts will be discarded before switching to {name}.',
+  'confirm.switch_conn': 'Switch & Discard',
+  'confirm.disconnect_title': 'Disconnect & discard work?',
+  'confirm.disconnect_msg':
+    'Staged changes or unsaved drafts will be discarded before disconnecting from {name}.',
+  'confirm.disconnect': 'Disconnect & Discard',
 
   // ---------- sql console ----------
   'console.title': 'Real-Time SQL Console (HeidiSQL Power-Tool)',
@@ -102,6 +112,7 @@ export const en = {
   'grid.last_page': 'Last page',
   'grid.empty': 'No data found in table.',
   'grid.pk': 'Primary Key',
+  'grid.no_pk': 'Table has no primary key — row editing and deleting are disabled.',
   'grid.auto': '(auto)',
   'grid.pending_changes': '{count} pending changes',
   'grid.pending_breakdown': '({inserts} new, {updates} modified, {deletes} deleted)',
@@ -138,6 +149,8 @@ export const en = {
   'editor.snippet_delete_hint': 'Delete snippet',
   'editor.snippet_save_ph': 'Save current query as...',
   'editor.prod_guard': 'Production — write guard on',
+  'guard.title': 'Production — {name}',
+  'guard.execute': 'Execute Anyway',
   'editor.success': 'Success',
   'editor.export_hint': 'Export result as CSV',
   'editor.export': 'Export CSV',
@@ -202,6 +215,7 @@ export const en = {
   'audit.loading': 'Loading audit trail...',
   'audit.empty': 'No audit entries match the current filters.',
   'audit.clear_confirm': 'Clear the ENTIRE persistent audit log? This cannot be undone.',
+  'audit.degraded': 'Warning: writing to audit.jsonl is failing — the persistent trail may be incomplete.',
 
   // ---------- dashboard ----------
   'dash.title': 'Server Dashboard',
@@ -283,6 +297,16 @@ export const en = {
   'conn.save_connect': 'Save & Connect',
   'conn.saved': 'Profile saved.',
   'conn.connect_hint': 'Connect to this database',
+  'conn.tls_mode': 'TLS / SSL Mode',
+  'conn.tls_verify_full': 'Verify Full — encrypt & verify server identity (recommended)',
+  'conn.tls_verify_ca': 'Verify CA — encrypt & verify certificate chain',
+  'conn.tls_require': 'Require — encrypt, no certificate verification',
+  'conn.tls_prefer': 'Prefer — encrypt if the server supports it',
+  'conn.tls_disable': 'Disabled — no encryption (insecure)',
+  'conn.tls_ca': 'Custom CA Certificate (optional)',
+  'conn.tls_ca_ph': 'Path to .pem — only for private-CA servers',
+  'conn.tls_ca_hint': 'Leave empty to use the system certificate store.',
+  'conn.tls_browse_hint': 'Browse for a CA certificate (.pem, .crt)',
 
   // ---------- code review modal ----------
   'review.title': 'Code Review: Pending SQL Changes',
@@ -295,6 +319,7 @@ export const en = {
   'review.empty': 'No statements to execute.',
   'review.discard': 'Discard All',
   'review.commit': 'Apply & Commit (⌘S)',
+  'review.stale': 'Staged changes were modified after review — showing the updated diff.',
 
   // ---------- quick switcher ----------
   'qs.placeholder': 'Open anything (table, view, query)...',
@@ -383,6 +408,26 @@ export const en = {
   'welcome.new_query': 'New SQL Query (⌘T)',
   'common.connect_failed': 'Failed to connect: ',
   'common.commit_failed': 'Commit failed: ',
+  // ---------- ai assistant ----------
+  'ai.settings_title': 'AI Assistant Settings',
+  'ai.provider': 'Provider',
+  'ai.model': 'Model',
+  'ai.base_url': 'Base URL (optional)',
+  'ai.base_url_hint': 'Override for OpenAI-compatible endpoints (OpenRouter, self-hosted, …).',
+  'ai.api_key': 'API Key',
+  'ai.key_placeholder': 'Paste your API key — stored in the OS keychain',
+  'ai.key_stored': '•••• key stored — leave blank to keep it',
+  'ai.key_hint': 'The key lives in the OS keychain, never in project files.',
+  'ai.clear_key': 'Remove stored key',
+  'ai.saved': 'AI settings saved.',
+  'ai.prompt_placeholder': 'Describe the SQL you need… e.g. "top 10 users by order count"',
+  'ai.generate': 'Generate',
+  'ai.generating': 'Thinking…',
+  'ai.insert': 'Insert',
+  'ai.replace': 'Replace',
+  'ai.dismiss': 'Dismiss',
+  'ai.run_hint': 'Runs through the normal execute path — review before running.',
+  'ai.settings_hint': 'AI settings',
   'tab.query': 'Query {count}',
   'tab.audit': 'Query Audit',
   'tab.erd': 'ER Diagram',

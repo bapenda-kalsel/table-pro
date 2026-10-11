@@ -11,7 +11,14 @@ export interface ConnectionProfile {
   database?: string;
   username?: string;
   file_path?: string;
+  /**
+   * TLS mode for TCP drivers: 'disable' | 'prefer' | 'require' |
+   * 'verify_ca' | 'verify_full'. Undefined = legacy profile that must
+   * choose explicitly before connecting (backend rejects with tls_config).
+   */
   ssl_mode?: string;
+  /** Optional custom CA certificate path (PEM) for private-CA servers. */
+  ssl_ca_cert_path?: string;
   created_at?: string;
 }
 
@@ -169,10 +176,23 @@ export interface Snippet {
 
 export type TabType = 'table' | 'query' | 'structure' | 'audit' | 'erd' | 'dashboard';
 
+export interface AiConfigView {
+  provider: string;
+  model: string;
+  baseUrl: string | null;
+  hasKey: boolean;
+  configured: boolean;
+}
+
+export interface AiGenerateResult {
+  sql: string;
+}
+
 export interface WorkspaceTab {
   id: string;
   title: string;
   type: TabType;
+  connectionId?: string;
   tableName?: string;
   queryText?: string;
   isDirty?: boolean;

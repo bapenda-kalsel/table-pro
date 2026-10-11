@@ -93,10 +93,23 @@ export const schemaApi = {
     refColumn: string;
     onDelete: string;
     onUpdate: string;
+    confirmToken?: string;
   }): Promise<string> {
     if (!isTauri) {
       return `Executed: ALTER TABLE "${params.table}" ADD CONSTRAINT "${params.constraintName}" FOREIGN KEY ("${params.column}") REFERENCES "${params.refTable}"("${params.refColumn}") ON DELETE ${params.onDelete} ON UPDATE ${params.onUpdate};`;
     }
-    return invoke('add_foreign_key', params);
+    return invoke('add_foreign_key', {
+      connectionId: params.connectionId,
+      confirmToken: params.confirmToken ?? null,
+      spec: {
+        constraint_name: params.constraintName,
+        table: params.table,
+        column: params.column,
+        ref_table: params.refTable,
+        ref_column: params.refColumn,
+        on_delete: params.onDelete,
+        on_update: params.onUpdate,
+      },
+    });
   },
 };

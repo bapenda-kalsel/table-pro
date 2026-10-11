@@ -1,6 +1,7 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
   import { api } from '$lib/api';
+  import { withProdGuard } from '$lib/api/approval';
   import type { FullTableSchema } from '$lib/types';
   import { Network, RefreshCw, ZoomIn, ZoomOut, Maximize, KeyRound, Link, Table, Eye, Link2, X, AlertTriangle, Check } from 'lucide-svelte';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -72,20 +73,26 @@
   );
 
   async function createFk() {
-    if (!linkSource || !fkTarget || !workspace.activeConnection) return;
+    const src = linkSource;
+    const tgt = fkTarget;
+    const connId = workspace.activeConnection?.id;
+    if (!src || !tgt || !connId) return;
     fkBusy = true;
     fkError = null;
     try {
-      const msg = await api.addForeignKey({
-        connectionId: workspace.activeConnection.id,
-        constraintName: fkName.trim() || `fk_${linkSource.table}_${linkSource.column}`,
-        table: linkSource.table,
-        column: linkSource.column,
-        refTable: fkTarget.table,
-        refColumn: fkTarget.column,
-        onDelete: fkOnDelete,
-        onUpdate: fkOnUpdate,
-      });
+      const msg = await withProdGuard((tok) =>
+        api.addForeignKey({
+          connectionId: connId,
+          constraintName: fkName.trim() || `fk_${src.table}_${src.column}`,
+          table: src.table,
+          column: src.column,
+          refTable: tgt.table,
+          refColumn: tgt.column,
+          onDelete: fkOnDelete,
+          onUpdate: fkOnUpdate,
+          confirmToken: tok,
+        })
+      );
       fkToast = msg;
       setTimeout(() => (fkToast = null), 8000);
       cancelLink();
@@ -224,13 +231,13 @@
 
 <svelte:window onpointermove={onPointerMove} onpointerup={endDrag} />
 
-<div class="flex-1 flex flex-col h-full bg-[#0f0f12] text-xs select-none overflow-hidden">
+<div class="flex-1 flex flex-col h-full bg-app text-xs select-none overflow-hidden">
   <!-- Toolbar -->
-  <div class="h-10 border-b border-[#27272a] bg-[#18181b] flex items-center justify-between px-4">
-    <div class="flex items-center gap-2 font-semibold text-zinc-200">
+  <div class="h-10 border-b border-edge bg-panel flex items-center justify-between px-4">
+    <div class="flex items-center gap-2 font-semibold text-fg">
       <Network class="w-4 h-4 text-violet-400" />
       <span>{t('erd.title')}</span>
-      <span class="text-[10px] text-zinc-500 font-mono">
+      <span class="text-[10px] text-faint font-mono">
         {t('erd.summary', { tables: Object.keys(schemas).length, rels: edges.length })}
       </span>
     </div>
@@ -239,7 +246,7 @@
         class={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
           linkMode
             ? 'bg-violet-500/20 border border-violet-500/50 text-violet-300'
-            : 'hover:bg-[#27272a] text-zinc-400 border border-transparent'
+            : 'hover:bg-hover text-muted border border-transparent'
         }`}
         onclick={toggleLinkMode}
         title={t('erd.new_relation')}
@@ -247,18 +254,18 @@
         <Link2 class="w-3.5 h-3.5" />
         <span>{t('erd.new_relation')}</span>
       </button>
-      <div class="w-px h-4 bg-[#3f3f46] mx-1"></div>
-      <button class="p-1.5 rounded hover:bg-[#27272a] text-zinc-400" onclick={() => (zoom = Math.max(0.4, zoom - 0.15))} title={t('erd.zoom_out')}>
+      <div class="w-px h-4 bg-strong mx-1"></div>
+      <button class="p-1.5 rounded hover:bg-hover text-muted" onclick={() => (zoom = Math.max(0.4, zoom - 0.15))} title={t('erd.zoom_out')}>
         <ZoomOut class="w-3.5 h-3.5" />
       </button>
-      <span class="w-10 text-center text-[10px] font-mono text-zinc-400">{Math.round(zoom * 100)}%</span>
-      <button class="p-1.5 rounded hover:bg-[#27272a] text-zinc-400" onclick={() => (zoom = Math.min(2, zoom + 0.15))} title={t('erd.zoom_in')}>
+      <span class="w-10 text-center text-[10px] font-mono text-muted">{Math.round(zoom * 100)}%</span>
+      <button class="p-1.5 rounded hover:bg-hover text-muted" onclick={() => (zoom = Math.min(2, zoom + 0.15))} title={t('erd.zoom_in')}>
         <ZoomIn class="w-3.5 h-3.5" />
       </button>
-      <button class="p-1.5 rounded hover:bg-[#27272a] text-zinc-400 ml-1" onclick={autoLayout} title={t('erd.autolayout')}>
+      <button class="p-1.5 rounded hover:bg-hover text-muted ml-1" onclick={autoLayout} title={t('erd.autolayout')}>
         <Maximize class="w-3.5 h-3.5" />
       </button>
-      <button class="p-1.5 rounded hover:bg-[#27272a] text-zinc-400" onclick={load} title={t('erd.reload')}>
+      <button class="p-1.5 rounded hover:bg-hover text-muted" onclick={load} title={t('erd.reload')}>
         <RefreshCw class="w-3.5 h-3.5" />
       </button>
     </div>
@@ -286,14 +293,14 @@
   {/if}
 
   <!-- Canvas -->
-  <div class="flex-1 overflow-auto relative" style="background-image: radial-gradient(circle, #26262c 1px, transparent 1px); background-size: 24px 24px;">
+  <div class="flex-1 overflow-auto relative" style="background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1px); background-size: 24px 24px;">
     {#if loading}
-      <div class="flex items-center justify-center h-48 text-zinc-500 gap-2">
+      <div class="flex items-center justify-center h-48 text-faint gap-2">
         <div class="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
         <span>{t('erd.loading')}</span>
       </div>
     {:else if Object.keys(schemas).length === 0}
-      <div class="p-8 text-center text-zinc-500">{t('erd.empty')}</div>
+      <div class="p-8 text-center text-faint">{t('erd.empty')}</div>
     {:else}
       <div
         class="relative origin-top-left"
@@ -302,10 +309,11 @@
         <!-- Edges (SVG layer beneath nodes) -->
         <svg class="absolute inset-0 pointer-events-none" width={canvasSize.w} height={canvasSize.h}>
           {#each edges as e, i}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
             <path
               d={edgePath(e)}
               fill="none"
-              stroke={hoveredEdge === i ? '#a78bfa' : '#52525b'}
+              stroke={hoveredEdge === i ? 'var(--accent)' : 'var(--border-strong)'}
               stroke-width={hoveredEdge === i ? 2 : 1.2}
               class="pointer-events-auto cursor-help transition-all"
               onmouseenter={() => (hoveredEdge = i)}
@@ -315,7 +323,7 @@
             </path>
             <!-- crow's-foot-ish marker on the "one" side -->
             {@const pos = workspace.erdPositions[e.toTable] ?? { x: 0, y: 0 }}
-            <circle cx={pos.x} cy={colRowY(e.toTable, e.toCol)} r="3" fill={hoveredEdge === i ? '#a78bfa' : '#71717a'} />
+            <circle cx={pos.x} cy={colRowY(e.toTable, e.toCol)} r="3" fill={hoveredEdge === i ? 'var(--accent)' : 'var(--text-faint)'} />
           {/each}
         </svg>
 
@@ -323,27 +331,27 @@
         {#each Object.entries(schemas) as [name, s]}
           {@const pos = workspace.erdPositions[name] ?? { x: 40, y: 40 }}
           <div
-            class={`absolute rounded-lg border bg-[#18181b] shadow-xl overflow-hidden ${
-              drag?.table === name ? 'border-violet-500 shadow-violet-500/20 z-20' : 'border-[#3f3f46] z-10'
+            class={`absolute rounded-lg border bg-panel shadow-xl overflow-hidden ${
+              drag?.table === name ? 'border-violet-500 shadow-violet-500/20 z-20' : 'border-strong z-10'
             }`}
             style={`left: ${pos.x}px; top: ${pos.y}px; width: ${NODE_W}px;`}
           >
             <!-- Node header (drag handle) -->
             <div
-              class="h-[30px] px-2.5 flex items-center gap-2 bg-[#222226] border-b border-[#3f3f46] cursor-grab active:cursor-grabbing"
+              class="h-[30px] px-2.5 flex items-center gap-2 bg-elevated border-b border-strong cursor-grab active:cursor-grabbing"
               onpointerdown={(e) => startDrag(e, name)}
               role="button"
               tabindex="0"
             >
               {@render tableIcon(workspace.tables.find((t) => t.name === name)?.table_type)}
-              <span class="font-bold text-zinc-100 truncate text-[11px]">{name}</span>
-              <span class="ml-auto text-[9px] text-zinc-500 font-mono">{t('erd.cols', { count: s.columns.length })}</span>
+              <span class="font-bold text-fg truncate text-[11px]">{name}</span>
+              <span class="ml-auto text-[9px] text-faint font-mono">{t('erd.cols', { count: s.columns.length })}</span>
             </div>
             <!-- Columns -->
             <div class="font-mono text-[10px]">
               {#each s.columns as c}
                 <div
-                  class={`h-[19px] px-2.5 flex items-center gap-1.5 border-b border-[#27272a]/40 text-zinc-300 truncate ${
+                  class={`h-[19px] px-2.5 flex items-center gap-1.5 border-b border-edge/40 text-fg2 truncate ${
                     linkMode ? 'cursor-crosshair hover:bg-violet-500/15' : ''
                   } ${linkSource?.table === name && linkSource?.column === c.name ? 'bg-violet-500/25 text-violet-100' : ''}`}
                   role={linkMode ? 'button' : undefined}
@@ -357,7 +365,7 @@
                     <span class="w-3 shrink-0"></span>
                   {/if}
                   <span class={`truncate ${c.is_primary_key ? 'text-amber-200 font-semibold' : ''}`}>{c.name}</span>
-                  <span class="ml-auto text-zinc-500 text-[9px] shrink-0">{c.data_type || 'ANY'}</span>
+                  <span class="ml-auto text-faint text-[9px] shrink-0">{c.data_type || 'ANY'}</span>
                 </div>
               {/each}
             </div>
@@ -368,49 +376,49 @@
   </div>
 
   <!-- Legend -->
-  <div class="h-7 border-t border-[#27272a] bg-[#141416] flex items-center gap-4 px-3 text-[10px] text-zinc-500">
+  <div class="h-7 border-t border-edge bg-subtle flex items-center gap-4 px-3 text-[10px] text-faint">
     <span class="flex items-center gap-1"><KeyRound class="w-3 h-3 text-amber-400" /> {t('erd.legend_pk')}</span>
     <span class="flex items-center gap-1"><Link class="w-3 h-3 text-violet-400" /> {t('erd.legend_fk')}</span>
-    <span class="flex items-center gap-1"><span class="inline-block w-4 h-px bg-zinc-500"></span> {t('erd.legend_rel')}</span>
+    <span class="flex items-center gap-1"><span class="inline-block w-4 h-px bg-faint"></span> {t('erd.legend_rel')}</span>
     <span class="ml-auto">{t('erd.legend_hint')}</span>
   </div>
 
   <!-- FK creation modal -->
   {#if fkTarget && linkSource}
     <div class="fixed inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-      <div class="bg-[#18181b] border border-[#3f3f46] rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div class="px-4 py-3 border-b border-[#27272a] bg-[#1f1f23] flex items-center justify-between">
-          <div class="flex items-center gap-2 text-zinc-100 font-semibold text-sm">
+      <div class="bg-panel border border-strong rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-edge bg-elevated flex items-center justify-between">
+          <div class="flex items-center gap-2 text-fg font-semibold text-sm">
             <Link2 class="w-4 h-4 text-violet-400" />
             <span>{t('fk.title')}</span>
           </div>
-          <button class="p-1 rounded hover:bg-[#3f3f46] text-zinc-500" onclick={closeFkModal}>
+          <button class="p-1 rounded hover:bg-hover text-faint" onclick={closeFkModal}>
             <X class="w-4 h-4" />
           </button>
         </div>
 
         <div class="p-4 space-y-3 text-[11px]">
-          <div class="flex items-center gap-2 font-mono text-[11px] bg-[#121214] border border-[#27272a] rounded px-3 py-2">
+          <div class="flex items-center gap-2 font-mono text-[11px] bg-app border border-edge rounded px-3 py-2">
             <span class="text-violet-300">{linkSource.table}.{linkSource.column}</span>
-            <span class="text-zinc-500">→</span>
+            <span class="text-faint">→</span>
             <span class="text-amber-300">{fkTarget.table}.{fkTarget.column}</span>
           </div>
 
           <label class="space-y-1 block">
-            <span class="text-[10px] text-zinc-400 uppercase font-semibold">{t('fk.name')}</span>
+            <span class="text-[10px] text-muted uppercase font-semibold">{t('fk.name')}</span>
             <input
               type="text"
               bind:value={fkName}
-              class="w-full bg-[#121214] border border-[#3f3f46] rounded px-2.5 py-1.5 text-zinc-200 focus:border-violet-500 outline-none font-mono text-[11px]"
+              class="w-full bg-app border border-strong rounded px-2.5 py-1.5 text-fg focus:border-violet-500 outline-none font-mono text-[11px]"
             />
           </label>
 
           <div class="grid grid-cols-2 gap-2">
             <label class="space-y-1 block">
-              <span class="text-[10px] text-zinc-400 uppercase font-semibold">{t('fk.on_delete')}</span>
+              <span class="text-[10px] text-muted uppercase font-semibold">{t('fk.on_delete')}</span>
               <select
                 bind:value={fkOnDelete}
-                class="w-full bg-[#121214] border border-[#3f3f46] rounded px-2.5 py-1.5 text-zinc-200 focus:border-violet-500 outline-none"
+                class="w-full bg-app border border-strong rounded px-2.5 py-1.5 text-fg focus:border-violet-500 outline-none"
               >
                 {#each FK_ACTIONS as a}
                   <option value={a}>{a}</option>
@@ -418,10 +426,10 @@
               </select>
             </label>
             <label class="space-y-1 block">
-              <span class="text-[10px] text-zinc-400 uppercase font-semibold">{t('fk.on_update')}</span>
+              <span class="text-[10px] text-muted uppercase font-semibold">{t('fk.on_update')}</span>
               <select
                 bind:value={fkOnUpdate}
-                class="w-full bg-[#121214] border border-[#3f3f46] rounded px-2.5 py-1.5 text-zinc-200 focus:border-violet-500 outline-none"
+                class="w-full bg-app border border-strong rounded px-2.5 py-1.5 text-fg focus:border-violet-500 outline-none"
               >
                 {#each FK_ACTIONS as a}
                   <option value={a}>{a}</option>
@@ -431,8 +439,8 @@
           </div>
 
           <div class="space-y-1">
-            <div class="text-[10px] text-zinc-400 uppercase font-semibold">{t('fk.preview')}</div>
-            <pre class="p-2.5 font-mono text-[10px] text-zinc-300 bg-[#121214] border border-[#27272a] rounded overflow-x-auto select-text">{fkPreviewSql}</pre>
+            <div class="text-[10px] text-muted uppercase font-semibold">{t('fk.preview')}</div>
+            <pre class="p-2.5 font-mono text-[10px] text-fg2 bg-app border border-edge rounded overflow-x-auto select-text">{fkPreviewSql}</pre>
           </div>
 
           {#if workspace.activeConnection?.driver === 'sqlite'}
@@ -449,8 +457,8 @@
           {/if}
         </div>
 
-        <div class="px-4 py-3 border-t border-[#27272a] bg-[#141416] flex justify-end gap-2">
-          <button class="px-3 py-1.5 rounded hover:bg-[#27272a] text-zinc-400 hover:text-zinc-200" onclick={closeFkModal}>
+        <div class="px-4 py-3 border-t border-edge bg-subtle flex justify-end gap-2">
+          <button class="px-3 py-1.5 rounded hover:bg-hover text-muted hover:text-fg" onclick={closeFkModal}>
             {t('common.cancel')}
           </button>
           <button

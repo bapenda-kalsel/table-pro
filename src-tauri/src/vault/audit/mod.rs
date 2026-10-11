@@ -5,6 +5,7 @@
 //! files without touching the real `~/.tablepro` directory.
 
 use super::{file_in_config_dir, get_exports_dir};
+use crate::errors::{AppError, AppResult};
 use crate::models::{AuditStats, SqlLogEntry};
 use std::collections::HashMap;
 use std::fs;
@@ -20,8 +21,8 @@ fn get_audit_file() -> std::path::PathBuf {
 
 /// Append a single audit entry to `file`, compacting to the last
 /// AUDIT_MAX_ENTRIES lines when the file grows beyond ~320 bytes/entry * cap.
-fn append_audit_to(file: &Path, entry: &SqlLogEntry) -> Result<(), String> {
-    let line = serde_json::to_string(entry).map_err(|e| e.to_string())?;
+fn append_audit_to(file: &Path, entry: &SqlLogEntry) -> AppResult<()> {
+    let line = serde_json::to_string(entry).map_err(AppError::from)?;
 
     let mut needs_compact = false;
     if let Ok(meta) = fs::metadata(file) {
@@ -38,7 +39,7 @@ fn append_audit_to(file: &Path, entry: &SqlLogEntry) -> Result<(), String> {
             .iter()
             .filter_map(|e| serde_json::to_string(e).ok())
             .collect();
-        fs::write(file, kept.join("\n") + "\n").map_err(|e| e.to_string())?;
+        fs::write(file, kept.join("\n") + "\n").map_err(AppError::from)?;
         return Ok(());
     }
 
@@ -46,8 +47,8 @@ fn append_audit_to(file: &Path, entry: &SqlLogEntry) -> Result<(), String> {
         .create(true)
         .append(true)
         .open(file)
-        .map_err(|e| e.to_string())?;
-    writeln!(f, "{}", line).map_err(|e| e.to_string())
+        .map_err(|e| AppError::storage_at(file, e.to_string()))?;
+    writeln!(f, "{}", line).map_err(AppError::from)
 }
 
 fn load_audit_entries_from(file: &Path) -> Vec<SqlLogEntry> {
@@ -145,7 +146,7 @@ fn audit_stats_of(entries: &[SqlLogEntry]) -> AuditStats {
     }
 }
 
-fn serialize_audit(entries: &[SqlLogEntry], format: &str) -> Result<String, String> {
+fn serialize_audit(entries: &[SqlLogEntry], format: &str) -> AppResult<String> {
     if format == "csv" {
         let mut out = String::from(
             "id,timestamp,connection,environment,statement_type,duration_ms,is_error,error_message,query\n",
@@ -157,7 +158,7 @@ fn serialize_audit(entries: &[SqlLogEntry], format: &str) -> Result<String, Stri
                 e.id,
                 e.timestamp,
                 esc(e.connection_name.as_deref().unwrap_or("")),
-                e.environment.as_deref().unwrap_or(""),
+                esc(e.environment.as_deref().unwrap_or("")),
                 e.statement_type.as_deref().unwrap_or("OTHER"),
                 e.duration_ms,
                 e.is_error,
@@ -167,15 +168,17 @@ fn serialize_audit(entries: &[SqlLogEntry], format: &str) -> Result<String, Stri
         }
         Ok(out)
     } else {
-        serde_json::to_string_pretty(entries).map_err(|e| e.to_string())
+        serde_json::to_string_pretty(entries).map_err(AppError::from)
     }
 }
 
-// ---- Public API used by commands (wired to the real ~/.tablepro paths) ----
+// ---- Public API used by services (wired to the real ~/.tablepro paths) ----
 
-/// Append a single audit entry. Best-effort: audit failure must never break queries.
-pub fn append_audit(entry: &SqlLogEntry) {
-    let _ = append_audit_to(&get_audit_file(), entry);
+/// Append a single audit entry.
+/// Returns an error instead of swallowing it: the service layer decides
+/// whether to degrade gracefully or surface a warning to the user.
+pub fn append_audit(entry: &SqlLogEntry) -> AppResult<()> {
+    append_audit_to(&get_audit_file(), entry)
 }
 
 /// Load audit entries filtered by connection / text / error-only / statement type.
@@ -197,10 +200,10 @@ pub fn load_audit_filtered(
     )
 }
 
-pub fn clear_audit() -> Result<(), String> {
+pub fn clear_audit() -> AppResult<()> {
     let file = get_audit_file();
     if file.exists() {
-        fs::write(&file, "").map_err(|e| e.to_string())?;
+        fs::write(&file, "").map_err(|e| AppError::storage_at(&file, e.to_string()))?;
     }
     Ok(())
 }
@@ -210,7 +213,7 @@ pub fn audit_stats() -> AuditStats {
 }
 
 /// Serialize audit entries to a CSV or JSON export file inside `~/.tablepro/exports/`.
-pub fn export_audit(format: &str) -> Result<String, String> {
+pub fn export_audit(format: &str) -> AppResult<String> {
     let entries = load_audit_entries_from(&get_audit_file());
     let ts = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
     let mut path = get_exports_dir();
@@ -220,7 +223,7 @@ pub fn export_audit(format: &str) -> Result<String, String> {
         if format == "csv" { "csv" } else { "json" }
     ));
     let content = serialize_audit(&entries, format)?;
-    fs::write(&path, content).map_err(|e| e.to_string())?;
+    fs::write(&path, content).map_err(|e| AppError::storage_at(&path, e.to_string()))?;
     Ok(path.to_string_lossy().to_string())
 }
 

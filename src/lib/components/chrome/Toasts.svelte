@@ -13,7 +13,7 @@
             ? 'bg-rose-950/90 border-rose-700/50 text-rose-200'
             : toast.kind === 'success'
               ? 'bg-emerald-950/90 border-emerald-700/50 text-emerald-200'
-              : 'bg-[#1c1c20]/95 border-[#3f3f46] text-zinc-200'
+              : 'bg-elevated/95 border-strong text-fg'
         }`}
         role="alert"
       >

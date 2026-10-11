@@ -2,7 +2,10 @@
 //! Everything here is pure (no I/O, no pool) so it can be unit-tested
 //! without a live database.
 
-use crate::models::{StagedCommitPayload, StagedDiffSummary};
+pub mod staged;
+
+use crate::errors::{AppError, AppResult};
+use crate::models::ForeignKeySpec;
 
 /// Identifier quoting dialect: `"x"` for ANSI/SQLite/Postgres, `` `x` `` for MySQL.
 #[derive(Clone, Copy)]
@@ -55,82 +58,6 @@ pub fn sql_literal(v: &serde_json::Value) -> String {
     }
 }
 
-/// Build the SQL diff for a staged commit payload (inserts/updates/deletes).
-/// Empty-string cell values are skipped so DB defaults / AUTO_INCREMENT apply.
-pub fn preview_staged_sql(dialect: Dialect, payload: &StagedCommitPayload) -> StagedDiffSummary {
-    let mut generated_sql = Vec::new();
-    let table = dialect.qi(&payload.table_name);
-
-    // 1. INSERTS
-    for item in &payload.inserts {
-        if let Some(obj) = item.as_object() {
-            let pairs: Vec<(&String, &serde_json::Value)> = obj
-                .iter()
-                .filter(|(_, v)| !matches!(v, serde_json::Value::String(s) if s.is_empty()))
-                .collect();
-
-            if pairs.is_empty() {
-                generated_sql.push(format!("INSERT INTO {} DEFAULT VALUES;", table));
-                continue;
-            }
-
-            let cols: Vec<String> = pairs.iter().map(|(k, _)| dialect.qi(k)).collect();
-            let vals: Vec<String> = pairs.iter().map(|(_, v)| sql_literal(v)).collect();
-            generated_sql.push(format!(
-                "INSERT INTO {} ({}) VALUES ({});",
-                table,
-                cols.join(", "),
-                vals.join(", ")
-            ));
-        }
-    }
-
-    // 2. UPDATES
-    for update in &payload.updates {
-        if let (Some(pk_obj), Some(fields_obj)) = (
-            update.primary_key_values.as_object(),
-            update.updated_fields.as_object(),
-        ) {
-            let set_clauses: Vec<String> = fields_obj
-                .iter()
-                .map(|(k, v)| format!("{} = {}", dialect.qi(k), sql_literal(v)))
-                .collect();
-            let where_clauses: Vec<String> = pk_obj
-                .iter()
-                .map(|(k, v)| format!("{} = {}", dialect.qi(k), sql_literal(v)))
-                .collect();
-            generated_sql.push(format!(
-                "UPDATE {} SET {} WHERE {};",
-                table,
-                set_clauses.join(", "),
-                where_clauses.join(" AND ")
-            ));
-        }
-    }
-
-    // 3. DELETES
-    for del in &payload.deletes {
-        if let Some(pk_obj) = del.as_object() {
-            let where_clauses: Vec<String> = pk_obj
-                .iter()
-                .map(|(k, v)| format!("{} = {}", dialect.qi(k), sql_literal(v)))
-                .collect();
-            generated_sql.push(format!(
-                "DELETE FROM {} WHERE {};",
-                table,
-                where_clauses.join(" AND ")
-            ));
-        }
-    }
-
-    StagedDiffSummary {
-        insert_count: payload.inserts.len(),
-        update_count: payload.updates.len(),
-        delete_count: payload.deletes.len(),
-        generated_sql,
-    }
-}
-
 /// Serialize rows (as JSON maps in consistent column order) to an export format.
 /// `ddl` is emitted at the top of SQL dumps.
 /// `headers` must match the order of each row's values (insertion order of the maps).
@@ -141,11 +68,11 @@ pub fn export_rows_bytes(
     headers: &[String],
     rows: &[serde_json::Map<String, serde_json::Value>],
     dialect: Dialect,
-) -> Result<Vec<u8>, String> {
+) -> AppResult<Vec<u8>> {
     match format {
         "csv" => {
             let mut wtr = csv::Writer::from_writer(Vec::new());
-            wtr.write_record(headers).map_err(|e| e.to_string())?;
+            wtr.write_record(headers).map_err(AppError::from)?;
             for r in rows {
                 let vals: Vec<String> = headers
                     .iter()
@@ -155,9 +82,9 @@ pub fn export_rows_bytes(
                         Some(other) => other.to_string(),
                     })
                     .collect();
-                wtr.write_record(&vals).map_err(|e| e.to_string())?;
+                wtr.write_record(&vals).map_err(AppError::from)?;
             }
-            wtr.into_inner().map_err(|e| e.to_string())
+            wtr.into_inner().map_err(AppError::from)
         }
         "json" => {
             let arr: Vec<serde_json::Value> = rows
@@ -165,7 +92,7 @@ pub fn export_rows_bytes(
                 .map(|r| serde_json::Value::Object(r.clone()))
                 .collect();
             Ok(serde_json::to_string_pretty(&arr)
-                .map_err(|e| e.to_string())?
+                .map_err(AppError::from)?
                 .into_bytes())
         }
         "sql" => {
@@ -194,18 +121,24 @@ pub fn export_rows_bytes(
             let mut wb = rust_xlsxwriter::Workbook::new();
             let safe: String = table
                 .chars()
-                .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+                .map(|c| {
+                    if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
                 .take(31)
                 .collect();
             let ws = wb
                 .add_worksheet()
                 .set_name(if safe.is_empty() { "export" } else { &safe })
-                .map_err(|e| e.to_string())?;
+                .map_err(AppError::from)?;
 
             let bold = rust_xlsxwriter::Format::new().set_bold();
             for (c, h) in headers.iter().enumerate() {
                 ws.write_string_with_format(0, c as u16, h, &bold)
-                    .map_err(|e| e.to_string())?;
+                    .map_err(AppError::from)?;
             }
             for (ri, r) in rows.iter().enumerate() {
                 for (ci, h) in headers.iter().enumerate() {
@@ -213,36 +146,42 @@ pub fn export_rows_bytes(
                     match r.get(h) {
                         None | Some(serde_json::Value::Null) => {}
                         Some(serde_json::Value::Bool(b)) => {
-                            ws.write_boolean(row32, col16, *b).map_err(|e| e.to_string())?;
+                            ws.write_boolean(row32, col16, *b).map_err(AppError::from)?;
                         }
                         Some(serde_json::Value::Number(n)) => {
                             ws.write_number(row32, col16, n.as_f64().unwrap_or(0.0))
-                                .map_err(|e| e.to_string())?;
+                                .map_err(AppError::from)?;
                         }
                         Some(other) => {
                             let s = match other {
                                 serde_json::Value::String(s) => s.clone(),
                                 o => o.to_string(),
                             };
-                            ws.write_string(row32, col16, &s).map_err(|e| e.to_string())?;
+                            ws.write_string(row32, col16, &s).map_err(AppError::from)?;
                         }
                     }
                 }
             }
             ws.autofit();
-            wb.save_to_buffer().map_err(|e| e.to_string())
+            wb.save_to_buffer().map_err(AppError::from)
         }
-        other => Err(format!("Unsupported export format: {}", other)),
+        other => Err(AppError::unsupported(format!(
+            "Unsupported export format: {}",
+            other
+        ))),
     }
 }
 
+/// One table's contribution to a logical dump: DDL, name, and row maps.
+pub type TableDump = (
+    String,
+    String,
+    Vec<serde_json::Map<String, serde_json::Value>>,
+);
+
 /// Build a logical SQL dump (DDL + INSERTs + extra objects) — used for backups
 /// on engines without a file-level backup primitive.
-pub fn dump_content(
-    dialect: Dialect,
-    table_dumps: &[(String /*ddl*/, String /*table*/, Vec<serde_json::Map<String, serde_json::Value>>)],
-    extra_ddls: &[String],
-) -> String {
+pub fn dump_content(dialect: Dialect, table_dumps: &[TableDump], extra_ddls: &[String]) -> String {
     let mut out = String::from("-- TablePro backup\nBEGIN TRANSACTION;\n\n");
     for (ddl, table, rows) in table_dumps {
         if !ddl.trim().is_empty() {
@@ -271,20 +210,16 @@ pub fn dump_content(
 
 /// Validate CSV header names so generated DDL stays safe, and produce the
 /// CREATE TABLE IF NOT EXISTS statement used by CSV import.
-pub fn import_table_ddl(
-    dialect: Dialect,
-    table: &str,
-    headers: &[String],
-) -> Result<String, String> {
+pub fn import_table_ddl(dialect: Dialect, table: &str, headers: &[String]) -> AppResult<String> {
     if headers.is_empty() {
-        return Err("CSV file has no header row".to_string());
+        return Err(AppError::validation("CSV file has no header row"));
     }
     for h in headers {
         if h.is_empty() || !h.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
-            return Err(format!(
+            return Err(AppError::validation(format!(
                 "Invalid CSV header '{}'. Headers must be alphanumeric/underscore.",
                 h
-            ));
+            )));
         }
     }
     let col_defs: Vec<String> = headers
@@ -309,13 +244,23 @@ pub fn import_insert_sql(
     format!(
         "INSERT INTO {} ({}) VALUES ({})",
         dialect.qi(table),
-        headers.iter().map(|h| dialect.qi(h)).collect::<Vec<_>>().join(", "),
+        headers
+            .iter()
+            .map(|h| dialect.qi(h))
+            .collect::<Vec<_>>()
+            .join(", "),
         placeholders.join(", ")
     )
 }
 
 /// Allowed referential actions for FOREIGN KEY clauses (whitelist).
-pub const FK_ACTIONS: [&str; 5] = ["NO ACTION", "RESTRICT", "CASCADE", "SET NULL", "SET DEFAULT"];
+pub const FK_ACTIONS: [&str; 5] = [
+    "NO ACTION",
+    "RESTRICT",
+    "CASCADE",
+    "SET NULL",
+    "SET DEFAULT",
+];
 
 /// Whitelist a referential action; anything else collapses to NO ACTION.
 pub fn sanitize_fk_action(action: &str) -> &'static str {
@@ -329,25 +274,16 @@ pub fn sanitize_fk_action(action: &str) -> &'static str {
 
 /// Build an `ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY` statement
 /// (valid ANSI + MySQL; PostgreSQL requires the constraint name too).
-pub fn add_fk_sql(
-    dialect: Dialect,
-    constraint_name: &str,
-    table: &str,
-    column: &str,
-    ref_table: &str,
-    ref_column: &str,
-    on_delete: &str,
-    on_update: &str,
-) -> String {
+pub fn add_fk_sql(dialect: Dialect, spec: &ForeignKeySpec) -> String {
     format!(
         "ALTER TABLE {} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {}({}) ON DELETE {} ON UPDATE {};",
-        dialect.qi(table),
-        dialect.qi(constraint_name),
-        dialect.qi(column),
-        dialect.qi(ref_table),
-        dialect.qi(ref_column),
-        sanitize_fk_action(on_delete),
-        sanitize_fk_action(on_update),
+        dialect.qi(&spec.table),
+        dialect.qi(&spec.constraint_name),
+        dialect.qi(&spec.column),
+        dialect.qi(&spec.ref_table),
+        dialect.qi(&spec.ref_column),
+        sanitize_fk_action(&spec.on_delete),
+        sanitize_fk_action(&spec.on_update),
     )
 }
 
@@ -377,7 +313,11 @@ pub fn table_data_query(
     }
     if let Some(s) = sort_by {
         if !s.trim().is_empty() {
-            q.push_str(&format!(" ORDER BY {} {}", dialect.qi(s), sanitize_sort_dir(sort_dir)));
+            q.push_str(&format!(
+                " ORDER BY {} {}",
+                dialect.qi(s),
+                sanitize_sort_dir(sort_dir)
+            ));
         }
     }
     q.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));

@@ -16,19 +16,19 @@
 {#if confirmDialog.current}
   {@const req = confirmDialog.current}
   <div class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[60]">
-    <div class="w-96 bg-[#18181b] border border-[#27272a] rounded-lg shadow-2xl p-4 space-y-3 text-xs select-none" role="alertdialog">
+    <div class="w-96 bg-panel border border-edge rounded-lg shadow-2xl p-4 space-y-3 text-xs select-none" role="alertdialog">
       <div class="flex items-center gap-2">
         <AlertTriangle class={`w-4 h-4 shrink-0 ${req.danger ? 'text-amber-400' : 'text-sky-400'}`} />
-        <h3 class="font-bold text-zinc-100 text-sm">{req.title}</h3>
+        <h3 class="font-bold text-fg text-sm">{req.title}</h3>
       </div>
       {#if req.message}
-        <div class="text-zinc-300 text-[11px] whitespace-pre-wrap break-all max-h-48 overflow-y-auto select-text font-mono">
+        <div class="text-fg2 text-[11px] whitespace-pre-wrap break-all max-h-48 overflow-y-auto select-text font-mono">
           {req.message}
         </div>
       {/if}
       <div class="flex justify-end gap-2 pt-1">
         <button
-          class="px-3 py-1 rounded bg-[#27272a] hover:bg-[#3f3f46] text-zinc-300 transition-colors"
+          class="px-3 py-1 rounded bg-elevated hover:bg-hover text-fg2 transition-colors"
           onclick={() => confirmDialog.answer(false)}
         >
           {t('common.cancel')}

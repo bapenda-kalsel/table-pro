@@ -1,6 +1,7 @@
 <script lang="ts">
   import { workspace } from '$lib/stores/workspace.svelte';
   import { api } from '$lib/api';
+  import { withProdGuard } from '$lib/api/approval';
   import { FileUp, X, FileText, CheckCircle2 } from 'lucide-svelte';
   import { open } from '@tauri-apps/plugin-dialog';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -40,7 +41,9 @@
     resultMsg = null;
     errorMsg = null;
     try {
-      const count = await api.importCsv(workspace.activeConnection.id, targetTable, filePath);
+      const count = await withProdGuard((tok) =>
+        api.importCsv(workspace.activeConnection!.id, targetTable, filePath, tok)
+      );
       resultMsg = t('ic.imported', { count, table: targetTable });
       await workspace.refreshTables();
       await workspace.refreshSchemaCache();
@@ -63,19 +66,19 @@
 
 {#if workspace.isImportCsvModalOpen}
   <div class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-    <div class="w-[480px] bg-[#18181b] border border-[#27272a] rounded-xl shadow-2xl flex flex-col text-xs overflow-hidden select-none">
+    <div class="w-[480px] bg-panel border border-edge rounded-xl shadow-2xl flex flex-col text-xs overflow-hidden select-none">
       <!-- Header -->
-      <div class="p-4 border-b border-[#27272a] flex items-center justify-between bg-[#141416]">
+      <div class="p-4 border-b border-edge flex items-center justify-between bg-subtle">
         <div class="flex items-center gap-2">
           <div class="p-1.5 rounded bg-sky-500/20 text-sky-400">
             <FileUp class="w-4 h-4" />
           </div>
           <div>
-            <h3 class="font-bold text-zinc-100 text-sm">{t('ic.title')}</h3>
-            <p class="text-zinc-400 text-[11px]">{t('ic.subtitle')}</p>
+            <h3 class="font-bold text-fg text-sm">{t('ic.title')}</h3>
+            <p class="text-muted text-[11px]">{t('ic.subtitle')}</p>
           </div>
         </div>
-        <button class="p-1 rounded hover:bg-[#27272a] text-zinc-400 hover:text-zinc-200" onclick={close}>
+        <button class="p-1 rounded hover:bg-hover text-muted hover:text-fg" onclick={close}>
           <X class="w-4 h-4" />
         </button>
       </div>
@@ -83,16 +86,17 @@
       <!-- Body -->
       <div class="p-4 space-y-4">
         <div class="space-y-1">
-          <label class="text-[10px] text-zinc-400 uppercase font-semibold">{t('ic.file')}</label>
+          <label for="ic-file" class="text-[10px] text-muted uppercase font-semibold">{t('ic.file')}</label>
           <div class="flex gap-2">
             <input
+              id="ic-file"
               type="text"
               bind:value={filePath}
               placeholder="/path/to/data.csv"
-              class="flex-1 bg-[#121214] border border-[#2e2e33] rounded px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-sky-500 font-mono text-[11px]"
+              class="flex-1 bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none focus:border-sky-500 font-mono text-[11px]"
             />
             <button
-              class="flex items-center gap-1 px-3 py-1.5 rounded bg-[#27272a] hover:bg-[#3f3f46] text-zinc-200 transition-colors"
+              class="flex items-center gap-1 px-3 py-1.5 rounded bg-elevated hover:bg-hover text-fg transition-colors"
               onclick={pickFile}
             >
               <FileText class="w-3.5 h-3.5" /><span>{t('common.browse')}</span>
@@ -101,14 +105,15 @@
         </div>
 
         <div class="space-y-1">
-          <label class="text-[10px] text-zinc-400 uppercase font-semibold">{t('ic.table')}</label>
+          <label for="ic-table" class="text-[10px] text-muted uppercase font-semibold">{t('ic.table')}</label>
           <input
+            id="ic-table"
             type="text"
             bind:value={targetTable}
             placeholder={t('ic.table_ph')}
-            class="w-full bg-[#121214] border border-[#2e2e33] rounded px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-sky-500 font-mono text-[11px]"
+            class="w-full bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none focus:border-sky-500 font-mono text-[11px]"
           />
-          <p class="text-[10px] text-zinc-500">
+          <p class="text-[10px] text-faint">
             {t('ic.table_note')}
           </p>
         </div>
@@ -126,8 +131,8 @@
       </div>
 
       <!-- Footer -->
-      <div class="p-3 border-t border-[#27272a] bg-[#141416] flex justify-end gap-2">
-        <button class="px-3 py-1.5 rounded hover:bg-[#27272a] text-zinc-400 hover:text-zinc-200" onclick={close}>
+      <div class="p-3 border-t border-edge bg-subtle flex justify-end gap-2">
+        <button class="px-3 py-1.5 rounded hover:bg-hover text-muted hover:text-fg" onclick={close}>
           {t('common.close')}
         </button>
         <button

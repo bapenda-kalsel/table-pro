@@ -41,9 +41,7 @@ async fn seeded() -> SqliteDriver {
         .await
         .unwrap();
     d.pool
-        .execute(
-            "CREATE TRIGGER trg_users AFTER INSERT ON users BEGIN SELECT 1; END;",
-        )
+        .execute("CREATE TRIGGER trg_users AFTER INSERT ON users BEGIN SELECT 1; END;")
         .await
         .unwrap();
     d
@@ -99,7 +97,10 @@ async fn schema_reports_pk_nullable_defaults() {
 async fn full_schema_includes_indexes_fks_triggers() {
     let d = seeded().await;
     let s = d.get_full_schema("users").await.unwrap();
-    assert!(s.indexes.iter().any(|i| i.name == "idx_users_email" && i.columns == vec!["email"]));
+    assert!(s
+        .indexes
+        .iter()
+        .any(|i| i.name == "idx_users_email" && i.columns == vec!["email"]));
     assert!(s.triggers.iter().any(|t| t.name == "trg_users"));
     assert!(s.ddl.unwrap().contains("CREATE TABLE"));
 
@@ -113,11 +114,17 @@ async fn full_schema_includes_indexes_fks_triggers() {
 async fn table_data_pagination_filter_sort() {
     let d = seeded().await;
     // page size 2 -> first page
-    let p1 = d.get_table_data("users", 2, 0, None, None, None).await.unwrap();
+    let p1 = d
+        .get_table_data("users", 2, 0, None, None, None)
+        .await
+        .unwrap();
     assert_eq!(p1.rows.len(), 2);
     assert_eq!(p1.total_rows, 3);
     // second page
-    let p2 = d.get_table_data("users", 2, 2, None, None, None).await.unwrap();
+    let p2 = d
+        .get_table_data("users", 2, 2, None, None, None)
+        .await
+        .unwrap();
     assert_eq!(p2.rows.len(), 1);
     // filter
     let f = d
@@ -139,19 +146,35 @@ async fn sort_dir_injection_is_sanitized() {
     let d = seeded().await;
     // A malicious sort_dir collapses to ASC instead of executing.
     let res = d
-        .get_table_data("users", 10, 0, None, Some("name"), Some("DESC; DROP TABLE users"))
+        .get_table_data(
+            "users",
+            10,
+            0,
+            None,
+            Some("name"),
+            Some("DESC; DROP TABLE users"),
+        )
         .await
         .unwrap();
     assert_eq!(res.rows.len(), 3);
     // table still exists
-    assert!(d.get_table_data("users", 1, 0, None, None, None).await.is_ok());
+    assert!(d
+        .get_table_data("users", 1, 0, None, None, None)
+        .await
+        .is_ok());
 }
 
 #[tokio::test]
 async fn empty_table_still_returns_headers() {
     let d = seeded().await;
-    d.pool.execute("CREATE TABLE empty_t (a INTEGER, b TEXT);").await.unwrap();
-    let res = d.get_table_data("empty_t", 10, 0, None, None, None).await.unwrap();
+    d.pool
+        .execute("CREATE TABLE empty_t (a INTEGER, b TEXT);")
+        .await
+        .unwrap();
+    let res = d
+        .get_table_data("empty_t", 10, 0, None, None, None)
+        .await
+        .unwrap();
     assert_eq!(res.rows.len(), 0);
     assert_eq!(res.columns, vec!["a", "b"]);
 }
@@ -159,7 +182,10 @@ async fn empty_table_still_returns_headers() {
 #[tokio::test]
 async fn execute_query_handles_select_and_writes() {
     let d = seeded().await;
-    let sel = d.execute_query("SELECT name FROM users WHERE id = 1").await.unwrap();
+    let sel = d
+        .execute_query("SELECT name FROM users WHERE id = 1")
+        .await
+        .unwrap();
     assert_eq!(sel.rows[0][0], json!("Alice"));
 
     let ins = d
@@ -213,7 +239,10 @@ async fn staged_changes_preview_and_commit() {
     assert_eq!(res.affected_rows, 3);
 
     // verify data actually changed
-    let data = d.get_table_data("users", 100, 0, None, Some("id"), Some("ASC")).await.unwrap();
+    let data = d
+        .get_table_data("users", 100, 0, None, Some("id"), Some("ASC"))
+        .await
+        .unwrap();
     assert_eq!(data.rows.len(), 3); // 3 - 1 deleted + 1 inserted
     assert_eq!(data.rows[0][1], json!("Alice2")); // updated
     assert_eq!(data.rows[2][1], json!("Dave")); // inserted
@@ -230,7 +259,10 @@ async fn staged_insert_skips_empty_strings_for_defaults() {
     let diff = d.preview_staged_changes(&payload).await.unwrap();
     assert!(!diff.generated_sql[0].contains("\"id\""));
     d.commit_staged_changes(payload).await.unwrap();
-    let data = d.get_table_data("users", 100, 0, Some("name = 'Eve'"), None, None).await.unwrap();
+    let data = d
+        .get_table_data("users", 100, 0, Some("name = 'Eve'"), None, None)
+        .await
+        .unwrap();
     assert_eq!(data.rows.len(), 1);
 }
 
@@ -245,8 +277,16 @@ async fn ddl_and_version() {
 #[tokio::test]
 async fn maintenance_actions() {
     let d = seeded().await;
-    assert!(d.run_maintenance("vacuum", None).await.unwrap().contains("VACUUM"));
-    assert!(d.run_maintenance("integrity_check", None).await.unwrap().contains("ok"));
+    assert!(d
+        .run_maintenance("vacuum", None)
+        .await
+        .unwrap()
+        .contains("VACUUM"));
+    assert!(d
+        .run_maintenance("integrity_check", None)
+        .await
+        .unwrap()
+        .contains("ok"));
     assert!(d.run_maintenance("analyze", None).await.is_ok());
     assert!(d.run_maintenance("reindex", None).await.is_ok());
     assert!(d.run_maintenance("bogus", None).await.is_err());
@@ -256,7 +296,9 @@ async fn maintenance_actions() {
 async fn global_text_search() {
     let d = seeded().await;
     let res = d.search_text_in_database("alice@x.com").await.unwrap();
-    assert!(res.iter().any(|r| r.table_name == "users" && r.column_name == "email"));
+    assert!(res
+        .iter()
+        .any(|r| r.table_name == "users" && r.column_name == "email"));
 
     let none = d.search_text_in_database("zzz-no-match").await.unwrap();
     assert!(none.is_empty());
@@ -268,26 +310,38 @@ async fn export_csv_json_sql_xlsx() {
     let dir = tempfile::tempdir().unwrap();
 
     // CSV
-    let csv_res = d.export_table("users", "csv", None, dir.path()).await.unwrap();
+    let csv_res = d
+        .export_table("users", "csv", None, dir.path())
+        .await
+        .unwrap();
     let csv_text = std::fs::read_to_string(&csv_res.file_path).unwrap();
     assert!(csv_text.lines().next().unwrap().contains("name"));
     assert_eq!(csv_res.row_count, 3);
 
     // JSON
-    let json_res = d.export_table("users", "json", None, dir.path()).await.unwrap();
+    let json_res = d
+        .export_table("users", "json", None, dir.path())
+        .await
+        .unwrap();
     let parsed: Vec<serde_json::Value> =
         serde_json::from_str(&std::fs::read_to_string(&json_res.file_path).unwrap()).unwrap();
     assert_eq!(parsed.len(), 3);
     assert_eq!(parsed[0]["name"], json!("Alice"));
 
     // SQL dump: DDL + INSERTs
-    let sql_res = d.export_table("users", "sql", None, dir.path()).await.unwrap();
+    let sql_res = d
+        .export_table("users", "sql", None, dir.path())
+        .await
+        .unwrap();
     let dump = std::fs::read_to_string(&sql_res.file_path).unwrap();
     assert!(dump.contains("CREATE TABLE users"));
     assert_eq!(dump.matches("INSERT INTO \"users\"").count(), 3);
 
     // XLSX: valid ZIP magic bytes "PK"
-    let xlsx_res = d.export_table("users", "xlsx", None, dir.path()).await.unwrap();
+    let xlsx_res = d
+        .export_table("users", "xlsx", None, dir.path())
+        .await
+        .unwrap();
     let bytes = std::fs::read(&xlsx_res.file_path).unwrap();
     assert_eq!(&bytes[0..2], &[0x50, 0x4B]);
     assert_eq!(xlsx_res.row_count, 3);
@@ -302,7 +356,10 @@ async fn export_csv_json_sql_xlsx() {
     assert_eq!(text.lines().count(), 2); // header + 1 row
 
     // unsupported format errors
-    assert!(d.export_table("users", "xml", None, dir.path()).await.is_err());
+    assert!(d
+        .export_table("users", "xml", None, dir.path())
+        .await
+        .is_err());
 }
 
 #[tokio::test]
@@ -318,7 +375,10 @@ async fn import_csv_creates_table_and_rows() {
         .unwrap();
     assert_eq!(count, 2);
 
-    let data = d.get_table_data("gadgets", 10, 0, None, None, None).await.unwrap();
+    let data = d
+        .get_table_data("gadgets", 10, 0, None, None, None)
+        .await
+        .unwrap();
     assert_eq!(data.rows.len(), 2);
     assert_eq!(data.columns, vec!["id", "name"]);
 
@@ -400,7 +460,8 @@ async fn backup_memory_db_falls_back_to_sql_dump() {
 
 #[test]
 fn retarget_and_inject_constraint() {
-    let ddl = "CREATE TABLE \"orders\" (\n  \"id\" INTEGER PRIMARY KEY,\n  \"total\" REAL DEFAULT (0)\n)";
+    let ddl =
+        "CREATE TABLE \"orders\" (\n  \"id\" INTEGER PRIMARY KEY,\n  \"total\" REAL DEFAULT (0)\n)";
     let retargeted = retarget_create_table(ddl, "orders__new").unwrap();
     assert!(retargeted.starts_with("CREATE TABLE \"orders__new\"("));
 
@@ -434,7 +495,15 @@ async fn add_foreign_key_rebuilds_table() {
         .unwrap();
 
     let msg = d
-        .add_foreign_key("fk_tasks_user", "tasks", "user_id", "users", "id", "CASCADE", "NO ACTION")
+        .add_foreign_key(&crate::models::ForeignKeySpec {
+            constraint_name: "fk_tasks_user".into(),
+            table: "tasks".into(),
+            column: "user_id".into(),
+            ref_table: "users".into(),
+            ref_column: "id".into(),
+            on_delete: "CASCADE".into(),
+            on_update: "NO ACTION".into(),
+        })
         .await
         .unwrap();
     assert!(msg.contains("tasks"));
@@ -447,7 +516,10 @@ async fn add_foreign_key_rebuilds_table() {
     assert_eq!(full.foreign_keys[0].on_delete, "CASCADE");
 
     // data survived the rebuild
-    let data = d.get_table_data("tasks", 10, 0, None, None, None).await.unwrap();
+    let data = d
+        .get_table_data("tasks", 10, 0, None, None, None)
+        .await
+        .unwrap();
     assert_eq!(data.rows.len(), 1);
 
     // the index was restored
@@ -468,13 +540,24 @@ async fn add_foreign_key_rejects_orphan_rows() {
         .unwrap();
 
     let err = d
-        .add_foreign_key("fk_ot", "orphan_tasks", "user_id", "users", "id", "NO ACTION", "NO ACTION")
+        .add_foreign_key(&crate::models::ForeignKeySpec {
+            constraint_name: "fk_ot".into(),
+            table: "orphan_tasks".into(),
+            column: "user_id".into(),
+            ref_table: "users".into(),
+            ref_column: "id".into(),
+            on_delete: "NO ACTION".into(),
+            on_update: "NO ACTION".into(),
+        })
         .await;
     assert!(err.is_err());
-    assert!(err.err().unwrap().contains("violate"));
+    assert!(err.err().unwrap().message().contains("violate"));
 
     // rollback kept the table and its row intact
-    let data = d.get_table_data("orphan_tasks", 10, 0, None, None, None).await.unwrap();
+    let data = d
+        .get_table_data("orphan_tasks", 10, 0, None, None, None)
+        .await
+        .unwrap();
     assert_eq!(data.rows.len(), 1);
     let full = d.get_full_schema("orphan_tasks").await.unwrap();
     assert!(full.foreign_keys.is_empty());

@@ -2,11 +2,21 @@ import { invoke, isTauri } from './client';
 import type { ExportResult, GlobalSearchResult } from '../types';
 
 export const opsApi = {
-  async runMaintenance(connectionId: string, action: string, table?: string): Promise<string> {
+  async runMaintenance(
+    connectionId: string,
+    action: string,
+    table?: string,
+    confirmToken?: string,
+  ): Promise<string> {
     if (!isTauri) {
       return `Maintenance action '${action}' completed successfully (Mock).`;
     }
-    return invoke('run_maintenance', { connectionId, action, table: table || null });
+    return invoke('run_maintenance', {
+      connectionId,
+      action,
+      table: table || null,
+      confirmToken: confirmToken ?? null,
+    });
   },
 
   async searchTextInDatabase(connectionId: string, keyword: string): Promise<GlobalSearchResult[]> {
@@ -35,9 +45,14 @@ export const opsApi = {
     return invoke('export_table', { connectionId, table, format, filter: filter || null });
   },
 
-  async importCsv(connectionId: string, table: string, filePath: string): Promise<number> {
+  async importCsv(
+    connectionId: string,
+    table: string,
+    filePath: string,
+    confirmToken?: string,
+  ): Promise<number> {
     if (!isTauri) return 42;
-    return invoke('import_csv', { connectionId, table, filePath });
+    return invoke('import_csv', { connectionId, table, filePath, confirmToken: confirmToken ?? null });
   },
 
   async backupDatabase(connectionId: string): Promise<string> {

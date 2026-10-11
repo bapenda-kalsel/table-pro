@@ -1,19 +1,20 @@
 //! Persistent storage layer under `~/.tablepro`.
 //!
-//! - `profiles`  — connection profiles (`connections.json`) + OS-keychain passwords
-//! - `audit`     — append-only query audit (`audit.jsonl`) with filters/stats/export
-//! - `snippets`  — saved query snippets (`snippets.json`)
+//! - `json_file`    — atomic, locked JSON-list persistence primitives
+//! - `credentials`  — OS keychain behind a fakeable `CredentialStore` trait
+//! - `profiles`     — connection profiles (`connections.json`)
+//! - `audit`        — append-only query audit (`audit.jsonl`)
+//! - `snippets`     — saved query snippets (`snippets.json`)
 //!
 //! All public functions are re-exported here so callers keep using `vault::*`.
 
 mod audit;
-mod profiles;
+pub mod credentials;
+pub mod json_file;
+pub(crate) mod profiles;
 mod snippets;
 
 pub use audit::{append_audit, audit_stats, clear_audit, export_audit, load_audit_filtered};
-pub use profiles::{
-    delete_profile, get_password, load_profiles, save_password, save_profile,
-};
 pub use snippets::{delete_snippet, list_snippets, save_snippet};
 
 use std::fs;

@@ -18,6 +18,7 @@
   import MaintenanceModal from '$lib/components/modals/MaintenanceModal.svelte';
   import ImportCsvModal from '$lib/components/modals/ImportCsvModal.svelte';
   import CreateTableModal from '$lib/components/modals/CreateTableModal.svelte';
+  import AiSettingsModal from '$lib/components/modals/AiSettingsModal.svelte';
   import ConfirmDialog from '$lib/components/modals/ConfirmDialog.svelte';
   import Toasts from '$lib/components/chrome/Toasts.svelte';
   import { Plus, Database, Terminal } from 'lucide-svelte';
@@ -62,7 +63,7 @@
 
 <svelte:window onkeydown={handleKeyDown} />
 
-<div class="h-screen w-screen flex flex-col bg-[#121214] text-[#e4e4e7] overflow-hidden select-none">
+<div class="h-screen w-screen flex flex-col bg-app text-fg overflow-hidden select-none">
   <!-- Top: TablePro Native Title Bar -->
   <TitleBar />
 
@@ -72,7 +73,7 @@
     <Sidebar />
 
     <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col h-full overflow-hidden bg-[#121214]">
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-app">
       <!-- Tab Bar -->
       <TabBar />
 
@@ -80,14 +81,14 @@
       <div class="flex-1 flex flex-col overflow-hidden relative">
         {#if !activeTab}
           <!-- Empty Workspace State -->
-          <div class="flex-1 flex flex-col items-center justify-center text-center p-8 text-zinc-500 space-y-4">
+          <div class="flex-1 flex flex-col items-center justify-center text-center p-8 text-faint space-y-4">
             <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-500/10 to-indigo-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
               <Database class="w-8 h-8" />
             </div>
             <div>
-              <h2 class="text-base font-semibold text-zinc-200">{t('welcome.title')}</h2>
-              <p class="text-xs text-zinc-500 mt-1 max-w-sm">
-                {t('welcome.sub_pre')} <kbd class="px-1.5 py-0.5 rounded bg-[#27272a] text-zinc-300 font-mono">⌘P</kbd> {t('welcome.sub_post')}
+              <h2 class="text-base font-semibold text-fg">{t('welcome.title')}</h2>
+              <p class="text-xs text-faint mt-1 max-w-sm">
+                {t('welcome.sub_pre')} <kbd class="px-1.5 py-0.5 rounded bg-elevated text-fg2 font-mono">⌘P</kbd> {t('welcome.sub_post')}
               </p>
             </div>
             <div class="flex items-center gap-3">
@@ -100,18 +101,24 @@
               </button>
             </div>
           </div>
-        {:else if activeTab.type === 'table' && activeTab.tableName}
-          <DataGrid tableName={activeTab.tableName} />
-        {:else if activeTab.type === 'structure' && activeTab.tableName}
-          <StructureViewer tableName={activeTab.tableName} />
-        {:else if activeTab.type === 'audit'}
-          <AuditPanel />
-        {:else if activeTab.type === 'erd'}
-          <ErDiagram />
-        {:else if activeTab.type === 'dashboard'}
-          <DashboardPanel />
-        {:else if activeTab.type === 'query'}
-          <QueryEditor initialQuery={activeTab.queryText} />
+        {:else}
+          <!-- Keyed per tab + connection: a panel can never carry internal
+               state from a previous tab or a replaced session. -->
+          {#key activeTab.id + ':' + (activeTab.connectionId ?? '')}
+            {#if activeTab.type === 'table' && activeTab.tableName}
+              <DataGrid tableName={activeTab.tableName} />
+            {:else if activeTab.type === 'structure' && activeTab.tableName}
+              <StructureViewer tableName={activeTab.tableName} />
+            {:else if activeTab.type === 'audit'}
+              <AuditPanel />
+            {:else if activeTab.type === 'erd'}
+              <ErDiagram />
+            {:else if activeTab.type === 'dashboard'}
+              <DashboardPanel />
+            {:else if activeTab.type === 'query'}
+              <QueryEditor tab={activeTab} />
+            {/if}
+          {/key}
         {/if}
       </div>
 
@@ -128,6 +135,7 @@
   <MaintenanceModal />
   <ImportCsvModal />
   <CreateTableModal />
+  <AiSettingsModal />
   <ConfirmDialog />
   <Toasts />
 </div>
