@@ -35,6 +35,38 @@ impl EnvironmentTag {
     }
 }
 
+/// Optional SSH jump-host settings for TCP connections. When present the
+/// database connection is routed through a local-forward tunnel.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SshConfig {
+    pub enabled: bool,
+    pub host: String,
+    #[serde(default = "default_ssh_port")]
+    pub port: Option<u16>,
+    pub username: String,
+    /// "password" | "key_file"
+    pub auth_method: String,
+    pub key_path: Option<String>,
+}
+
+fn default_ssh_port() -> Option<u16> {
+    Some(22)
+}
+
+impl Default for SshConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            host: String::new(),
+            port: Some(22),
+            username: String::new(),
+            auth_method: "password".into(),
+            key_path: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectionProfile {
     pub id: String,
@@ -53,6 +85,8 @@ pub struct ConnectionProfile {
     pub ssl_mode: Option<String>,
     /// Optional custom CA certificate path (PEM) for private-CA servers.
     pub ssl_ca_cert_path: Option<String>,
+    /// SSH tunnel config; `ssh: null`/absent = no tunnel.
+    pub ssh: Option<SshConfig>,
     pub created_at: Option<String>,
 }
 

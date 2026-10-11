@@ -2,7 +2,7 @@
   import { workspace } from '$lib/stores/workspace.svelte';
   import { api } from '$lib/api';
   import type { ConnectionProfile, DatabaseDriverType, EnvironmentTag } from '$lib/types';
-  import { Database, Plus, Trash2, CheckCircle2, AlertCircle, X, Lock, FolderOpen, Plug } from 'lucide-svelte';
+  import { Database, Plus, Trash2, CheckCircle2, AlertCircle, X, Lock, FolderOpen, Plug, Network } from 'lucide-svelte';
   import { open } from '@tauri-apps/plugin-dialog';
   import { t } from '$lib/i18n/i18n.svelte';
   import { confirmDialog } from '$lib/stores/confirm.svelte';
@@ -39,6 +39,16 @@
   let formSslMode = $state('verify_full');
   let formSslCa = $state('');
 
+  // SSH tunnel state (TCP drivers only)
+  let sshEnabled = $state(false);
+  let sshHost = $state('');
+  let sshPort = $state(22);
+  let sshUsername = $state('');
+  let sshAuthMethod = $state<'password' | 'key_file'>('password');
+  let sshKeyPath = $state('');
+  let sshPassword = $state('');
+  let sshPassphrase = $state('');
+
   let testResult = $state<{ success: boolean; message: string } | null>(null);
   let isTesting = $state(false);
 
@@ -59,8 +69,29 @@
     if (formDriver !== 'sqlite') {
       profile.ssl_mode = formSslMode;
       if (formSslCa.trim()) profile.ssl_ca_cert_path = formSslCa.trim();
+      if (sshEnabled) {
+        profile.ssh = {
+          enabled: true,
+          host: sshHost,
+          port: sshPort || 22,
+          username: sshUsername,
+          authMethod: sshAuthMethod,
+          keyPath: sshAuthMethod === 'key_file' ? sshKeyPath : undefined,
+        };
+      } else {
+        profile.ssh = { enabled: false, host: '', username: '', authMethod: 'password' };
+      }
     }
     return profile;
+  }
+
+  /** Inline SSH secrets for save/test. Disabled SSH clears stored secrets. */
+  function sshSecrets() {
+    if (formDriver === 'sqlite') return undefined;
+    return {
+      sshPassword: sshEnabled ? sshPassword || undefined : '',
+      sshPassphrase: sshEnabled && sshAuthMethod === 'key_file' ? sshPassphrase || undefined : '',
+    };
   }
 
   async function pickCaFile() {
@@ -75,6 +106,14 @@
     }
   }
 
+  async function pickSshKeyFile() {
+    if (!isTauri) return;
+    const selected = await open({ title: t('conn.ssh_key_pick'), multiple: false });
+    if (typeof selected === 'string') {
+      sshKeyPath = selected;
+    }
+  }
+
   function resetForm() {
     selectedProfileId = null;
     formName = 'New Database Connection';
@@ -84,6 +123,14 @@
     formPassword = '';
     formSslMode = 'verify_full';
     formSslCa = '';
+    sshEnabled = false;
+    sshHost = '';
+    sshPort = 22;
+    sshUsername = '';
+    sshAuthMethod = 'password';
+    sshKeyPath = '';
+    sshPassword = '';
+    sshPassphrase = '';
     testResult = null;
   }
 
@@ -102,6 +149,15 @@
     // next save migrates them explicitly (backend rejects it otherwise).
     formSslMode = p.ssl_mode || 'verify_full';
     formSslCa = p.ssl_ca_cert_path || '';
+    sshEnabled = p.ssh?.enabled ?? false;
+    sshHost = p.ssh?.host ?? '';
+    sshPort = p.ssh?.port ?? 22;
+    sshUsername = p.ssh?.username ?? '';
+    sshAuthMethod = (p.ssh?.authMethod as 'password' | 'key_file') ?? 'password';
+    sshKeyPath = p.ssh?.keyPath ?? '';
+    // SSH secrets live in the keychain — fields stay blank; blank = keep.
+    sshPassword = '';
+    sshPassphrase = '';
     testResult = null;
   }
 
@@ -111,7 +167,7 @@
     const profile = buildProfile(selectedProfileId || 'temp-id');
 
     try {
-      const pingMs = await api.testConnection(profile, formPassword || undefined);
+      const pingMs = await api.testConnection(profile, formPassword || undefined, sshSecrets());
       testResult = { success: true, message: t('conn.test_ok', { ms: pingMs.toFixed(2) }) };
     } catch (err: any) {
       testResult = { success: false, message: String(err) };
@@ -125,7 +181,7 @@
     const profile = buildProfile(id);
 
     try {
-      await api.saveConnectionProfile(profile, formPassword || undefined);
+      await api.saveConnectionProfile(profile, formPassword || undefined, sshSecrets());
       await workspace.refreshConnections();
       selectedProfileId = id;
       testResult = { success: true, message: t('conn.saved') };
@@ -412,6 +468,109 @@
                 <p class="text-[10px] text-faint">{t('conn.tls_ca_hint')}</p>
               </div>
             {/if}
+
+            <!-- SSH Tunnel -->
+            <div class="space-y-3 rounded-lg border border-edge bg-subtle p-3">
+              <label class="flex items-center gap-2 text-[10px] text-muted uppercase font-semibold cursor-pointer">
+                <input type="checkbox" bind:checked={sshEnabled} class="rounded" />
+                <Network class="w-3 h-3 text-violet-400" />
+                {t('conn.ssh_toggle')}
+              </label>
+
+              {#if sshEnabled}
+                <div class="grid grid-cols-3 gap-2">
+                  <div class="col-span-2 space-y-1">
+                    <label for="ssh-host" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_host')}</label>
+                    <input
+                      id="ssh-host"
+                      type="text"
+                      bind:value={sshHost}
+                      placeholder="bastion.example.com"
+                      class="w-full bg-app border border-edge rounded px-2.5 py-1.5 text-fg"
+                    />
+                  </div>
+                  <div class="space-y-1">
+                    <label for="ssh-port" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_port')}</label>
+                    <input
+                      id="ssh-port"
+                      type="number"
+                      bind:value={sshPort}
+                      class="w-full bg-app border border-edge rounded px-2.5 py-1.5 text-fg"
+                    />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="space-y-1">
+                    <label for="ssh-user" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_user')}</label>
+                    <input
+                      id="ssh-user"
+                      type="text"
+                      bind:value={sshUsername}
+                      class="w-full bg-app border border-edge rounded px-2.5 py-1.5 text-fg"
+                    />
+                  </div>
+                  <div class="space-y-1">
+                    <label for="ssh-auth" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_auth')}</label>
+                    <select
+                      id="ssh-auth"
+                      bind:value={sshAuthMethod}
+                      class="w-full bg-app border border-edge rounded px-2.5 py-1.5 text-fg focus:outline-none focus:border-sky-500"
+                    >
+                      <option value="password">{t('conn.ssh_auth_pw')}</option>
+                      <option value="key_file">{t('conn.ssh_auth_key')}</option>
+                    </select>
+                  </div>
+                </div>
+
+                {#if sshAuthMethod === 'password'}
+                  <div class="space-y-1">
+                    <label for="ssh-pass" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_password')}</label>
+                    <input
+                      id="ssh-pass"
+                      type="password"
+                      bind:value={sshPassword}
+                      placeholder={t('conn.ssh_password_ph')}
+                      class="w-full bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none"
+                    />
+                  </div>
+                {:else}
+                  <div class="space-y-1">
+                    <label for="ssh-key" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_key')}</label>
+                    <div class="flex gap-2">
+                      <input
+                        id="ssh-key"
+                        type="text"
+                        bind:value={sshKeyPath}
+                        placeholder="~/.ssh/id_ed25519"
+                        class="flex-1 bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none font-mono text-[11px]"
+                      />
+                      <button
+                        type="button"
+                        class="flex items-center gap-1 px-3 py-1.5 rounded bg-elevated hover:bg-hover text-fg transition-colors"
+                        onclick={pickSshKeyFile}
+                      >
+                        <FolderOpen class="w-3.5 h-3.5" /><span>{t('common.browse')}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="space-y-1">
+                    <label for="ssh-pp" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_passphrase')}</label>
+                    <input
+                      id="ssh-pp"
+                      type="password"
+                      bind:value={sshPassphrase}
+                      placeholder={t('conn.ssh_passphrase_ph')}
+                      class="w-full bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none"
+                    />
+                  </div>
+                {/if}
+
+                <p class="text-[10px] text-faint">
+                  {t('conn.ssh_note')}
+                </p>
+              {/if}
+            </div>
           {/if}
 
           <!-- Test Result Feedback -->

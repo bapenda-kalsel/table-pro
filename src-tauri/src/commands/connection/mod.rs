@@ -20,6 +20,8 @@ pub async fn get_connection_profiles(
 pub async fn save_connection_profile(
     profile: ConnectionProfile,
     password: Option<String>,
+    ssh_password: Option<String>,
+    ssh_passphrase: Option<String>,
     state: State<'_, AppState>,
 ) -> AppResult<()> {
     // Empty string means "keep whatever is stored" — the UI never sends an
@@ -28,7 +30,14 @@ pub async fn save_connection_profile(
         Some(pw) => SecretIntent::Set(pw),
         None => SecretIntent::Keep,
     };
-    state.connections.save_profile(profile, secret).await
+    let profile_id = profile.id.clone();
+    state.connections.save_profile(profile, secret).await?;
+    // SSH secrets are independent keychain entries; here Some(v) sets,
+    // Some("") clears (SSH disabled or cleared field), None keeps.
+    state
+        .connections
+        .save_ssh_secrets(&profile_id, ssh_password, ssh_passphrase)
+        .await
 }
 
 #[tauri::command]
@@ -42,11 +51,18 @@ pub async fn delete_connection_profile(id: String, state: State<'_, AppState>) -
 pub async fn test_connection(
     profile: ConnectionProfile,
     password: Option<String>,
+    ssh_password: Option<String>,
+    ssh_passphrase: Option<String>,
     state: State<'_, AppState>,
 ) -> AppResult<f64> {
     state
         .connections
-        .test_connection(&profile, password.filter(|p| !p.is_empty()))
+        .test_connection(
+            &profile,
+            password.filter(|p| !p.is_empty()),
+            ssh_password.filter(|p| !p.is_empty()),
+            ssh_passphrase.filter(|p| !p.is_empty()),
+        )
         .await
 }
 

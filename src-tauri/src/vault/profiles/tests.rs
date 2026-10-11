@@ -15,6 +15,7 @@ fn profile(id: &str, name: &str) -> ConnectionProfile {
         file_path: Some(":memory:".to_string()),
         ssl_mode: None,
         ssl_ca_cert_path: None,
+        ssh: None,
         created_at: None,
     }
 }

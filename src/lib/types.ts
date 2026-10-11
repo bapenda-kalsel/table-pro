@@ -1,6 +1,17 @@
 export type DatabaseDriverType = 'sqlite' | 'mysql' | 'postgres';
 export type EnvironmentTag = 'local' | 'staging' | 'production';
 
+/** SSH jump-host settings; when `enabled`, DB traffic goes through a local-forward tunnel. */
+export interface SshConfig {
+  enabled: boolean;
+  host: string;
+  port?: number;
+  username: string;
+  /** 'password' | 'key_file' */
+  authMethod: string;
+  keyPath?: string;
+}
+
 export interface ConnectionProfile {
   id: string;
   name: string;
@@ -19,6 +30,8 @@ export interface ConnectionProfile {
   ssl_mode?: string;
   /** Optional custom CA certificate path (PEM) for private-CA servers. */
   ssl_ca_cert_path?: string;
+  /** SSH tunnel; absent/disabled = direct connection. */
+  ssh?: SshConfig;
   created_at?: string;
 }
 

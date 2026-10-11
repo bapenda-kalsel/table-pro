@@ -16,6 +16,7 @@ fn sqlite_profile(id: &str, path: &str) -> crate::models::ConnectionProfile {
         file_path: Some(path.into()),
         ssl_mode: None,
         ssl_ca_cert_path: None,
+        ssh: None,
         created_at: None,
     }
 }

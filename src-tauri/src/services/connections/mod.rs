@@ -5,12 +5,14 @@
 //! mode, what happens on partial failure) live here.
 
 pub mod registry;
+pub mod tunnel;
 
 pub use registry::{LiveConnection, OpGuard, SessionRegistry};
+use tunnel::SshTunnel;
 
 use crate::drivers::factory;
 use crate::errors::{AppError, AppResult};
-use crate::models::ConnectionProfile;
+use crate::models::{ConnectionProfile, DatabaseDriverType};
 use crate::vault;
 use crate::vault::credentials::{CredentialStore, KeychainStore, SecretIntent};
 use std::path::PathBuf;
@@ -93,6 +95,37 @@ impl ConnectionService {
         }
     }
 
+    /// SSH secrets live under dedicated keychain accounts so the
+    /// connection password and SSH credentials rotate independently.
+    /// Some("") clears, Some(v) replaces, None leaves the stored value.
+    pub async fn save_ssh_secrets(
+        &self,
+        profile_id: &str,
+        ssh_password: Option<String>,
+        ssh_passphrase: Option<String>,
+    ) -> AppResult<()> {
+        for (account, value) in [
+            (format!("ssh:{}", profile_id), ssh_password),
+            (format!("sshpass:{}", profile_id), ssh_passphrase),
+        ] {
+            let credentials = self.credentials.clone();
+            let result = tokio::task::spawn_blocking(move || match value {
+                None => Ok(()),
+                Some(v) if v.is_empty() => credentials.delete(&account),
+                Some(v) => credentials.set(&account, &v),
+            })
+            .await
+            .map_err(|e| AppError::internal(format!("credential task failed: {}", e)))?;
+            result.map_err(|e| {
+                AppError::credential_unavailable(format!(
+                    "SSH secret could not be stored: {}",
+                    e.message()
+                ))
+            })?;
+        }
+        Ok(())
+    }
+
     /// Delete a profile. Refuses while the connection is live so a running
     /// session is never orphaned. Credential delete failures are reported
     /// (the profile file entry is already gone — said so in the message).
@@ -111,16 +144,26 @@ impl ConnectionService {
         .map_err(|e| AppError::internal(format!("storage task failed: {}", e)))??;
 
         let credentials = self.credentials.clone();
-        let id2 = id.to_string();
-        tokio::task::spawn_blocking(move || credentials.delete(&id2))
-            .await
-            .map_err(|e| AppError::internal(format!("credential task failed: {}", e)))?
-            .map_err(|e| {
-                AppError::credential_unavailable(format!(
-                    "Profile was removed, but its stored password could not be deleted: {}",
-                    e.message()
-                ))
-            })
+        let accounts = [
+            id.to_string(),
+            format!("ssh:{}", id),
+            format!("sshpass:{}", id),
+        ];
+        for account in accounts {
+            let credentials = credentials.clone();
+            let account_for_msg = account.clone();
+            tokio::task::spawn_blocking(move || credentials.delete(&account))
+                .await
+                .map_err(|e| AppError::internal(format!("credential task failed: {}", e)))?
+                .map_err(|e| {
+                    AppError::credential_unavailable(format!(
+                        "Profile was removed, but stored secret '{}' could not be deleted: {}",
+                        account_for_msg,
+                        e.message()
+                    ))
+                })?;
+        }
+        Ok(())
     }
 
     /// Resolve the effective password: an inline value wins (form field),
@@ -161,7 +204,8 @@ impl ConnectionService {
         }
 
         let pw = self.resolve_password(profile_id, password).await?;
-        let driver = factory::build(&profile, pw).await?;
+        let (effective, tunnel) = self.prepare_target(&profile, None, None).await?;
+        let driver = factory::build(&effective, pw).await?;
         let ms = driver.ping().await?;
 
         let conn = LiveConnection::new(
@@ -171,6 +215,7 @@ impl ConnectionService {
             profile.name.clone(),
             profile.environment.clone(),
             self.registry.bump_generation(),
+            tunnel,
         );
         self.registry
             .insert(profile_id.to_string(), Arc::new(conn))
@@ -195,12 +240,57 @@ impl ConnectionService {
         &self,
         profile: &ConnectionProfile,
         password: Option<String>,
+        ssh_password: Option<String>,
+        ssh_passphrase: Option<String>,
     ) -> AppResult<f64> {
         let pw = self.resolve_password(&profile.id, password).await?;
-        let driver = factory::build(profile, pw).await?;
+        let (effective, tunnel) = self
+            .prepare_target(profile, ssh_password, ssh_passphrase)
+            .await?;
+        let driver = factory::build(&effective, pw).await?;
         let result = driver.ping().await;
         driver.close().await;
+        drop(tunnel);
         result
+    }
+
+    /// Resolve SSH secrets and open a tunnel when the profile asks for
+    /// one, returning the effective profile (host rewritten to the local
+    /// forward endpoint) plus the tunnel handle to keep alive.
+    async fn prepare_target(
+        &self,
+        profile: &ConnectionProfile,
+        ssh_password: Option<String>,
+        ssh_passphrase: Option<String>,
+    ) -> AppResult<(ConnectionProfile, Option<SshTunnel>)> {
+        let ssh = match profile.ssh.as_ref().filter(|s| s.enabled) {
+            Some(s) => s,
+            None => return Ok((profile.clone(), None)),
+        };
+        factory::validate(profile)?;
+        let default_port = match profile.driver {
+            DatabaseDriverType::MySQL => 3306,
+            DatabaseDriverType::PostgreSQL => 5432,
+            DatabaseDriverType::SQLite => {
+                return Err(AppError::validation(
+                    "SSH tunnels only apply to TCP drivers (MySQL/PostgreSQL)",
+                ))
+            }
+        };
+        let ssh_pw = self
+            .resolve_password(&format!("ssh:{}", profile.id), ssh_password)
+            .await?;
+        let ssh_pp = self
+            .resolve_password(&format!("sshpass:{}", profile.id), ssh_passphrase)
+            .await?;
+        let db_host = profile.host.clone().unwrap_or_else(|| "localhost".into());
+        let db_port = profile.port.unwrap_or(default_port);
+
+        let tunnel = SshTunnel::open(ssh, ssh_pw, ssh_pp, &db_host, db_port).await?;
+        let mut effective = profile.clone();
+        effective.host = Some("127.0.0.1".into());
+        effective.port = Some(tunnel.local_port());
+        Ok((effective, Some(tunnel)))
     }
 
     /// Lease for one database operation.

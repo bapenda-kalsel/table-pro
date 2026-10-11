@@ -14,6 +14,7 @@ fn tcp_profile(driver: DatabaseDriverType) -> ConnectionProfile {
         file_path: None,
         ssl_mode: Some("verify_full".into()),
         ssl_ca_cert_path: None,
+        ssh: None,
         created_at: None,
     }
 }

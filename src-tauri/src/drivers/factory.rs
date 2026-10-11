@@ -109,6 +109,34 @@ pub fn validate(profile: &ConnectionProfile) -> AppResult<()> {
             }
         }
     }
+    if let Some(ssh) = profile.ssh.as_ref().filter(|s| s.enabled) {
+        if matches!(profile.driver, DatabaseDriverType::SQLite) {
+            return Err(AppError::validation(
+                "SSH tunnels only apply to TCP drivers (MySQL/PostgreSQL)",
+            ));
+        }
+        if ssh.host.trim().is_empty() || ssh.username.trim().is_empty() {
+            return Err(AppError::validation(
+                "SSH tunnel requires a host and a username",
+            ));
+        }
+        match ssh.auth_method.as_str() {
+            "password" => {}
+            "key_file" => {
+                if ssh.key_path.as_deref().unwrap_or("").trim().is_empty() {
+                    return Err(AppError::validation(
+                        "SSH key-file auth requires a private key path",
+                    ));
+                }
+            }
+            other => {
+                return Err(AppError::validation(format!(
+                    "Unknown SSH auth method '{}' — expected 'password' or 'key_file'",
+                    other
+                )))
+            }
+        }
+    }
     Ok(())
 }
 

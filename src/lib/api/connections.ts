@@ -20,14 +20,23 @@ export const connectionsApi = {
     return invoke('get_connection_profiles');
   },
 
-  async saveConnectionProfile(profile: ConnectionProfile, password?: string): Promise<void> {
+  async saveConnectionProfile(
+    profile: ConnectionProfile,
+    password?: string,
+    sshSecrets?: { sshPassword?: string; sshPassphrase?: string },
+  ): Promise<void> {
     if (!isTauri) {
       const idx = mockProfiles.findIndex((p) => p.id === profile.id);
       if (idx >= 0) mockProfiles[idx] = { ...profile };
       else mockProfiles.push({ ...profile });
       return;
     }
-    return invoke('save_connection_profile', { profile, password });
+    return invoke('save_connection_profile', {
+      profile,
+      password,
+      sshPassword: sshSecrets?.sshPassword ?? null,
+      sshPassphrase: sshSecrets?.sshPassphrase ?? null,
+    });
   },
 
   async deleteConnectionProfile(id: string): Promise<void> {
@@ -38,9 +47,18 @@ export const connectionsApi = {
     return invoke('delete_connection_profile', { id });
   },
 
-  async testConnection(profile: ConnectionProfile, password?: string): Promise<number> {
+  async testConnection(
+    profile: ConnectionProfile,
+    password?: string,
+    sshSecrets?: { sshPassword?: string; sshPassphrase?: string },
+  ): Promise<number> {
     if (!isTauri) return 1.25;
-    return invoke('test_connection', { profile, password: password || null });
+    return invoke('test_connection', {
+      profile,
+      password: password || null,
+      sshPassword: sshSecrets?.sshPassword ?? null,
+      sshPassphrase: sshSecrets?.sshPassphrase ?? null,
+    });
   },
 
   /** `password` optionally overrides the keychain for this connect. */

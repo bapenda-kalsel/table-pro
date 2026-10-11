@@ -14,6 +14,7 @@
 use crate::drivers::DatabaseDriver;
 use crate::errors::{AppError, AppResult};
 use crate::models::{DatabaseDriverType, EnvironmentTag};
+use crate::services::connections::tunnel::SshTunnel;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -33,6 +34,9 @@ pub struct LiveConnection {
     pub environment: EnvironmentTag,
     /// Unique per session of this profile id; stale-callback guard.
     pub generation: u64,
+    /// Keeps the SSH tunnel alive for the session's lifetime; dropping the
+    /// connection drops the tunnel, which aborts the accept loop.
+    pub _tunnel: Option<SshTunnel>,
     state: std::sync::RwLock<LifecycleState>,
     active_ops: AtomicUsize,
     drained: Notify,
@@ -46,6 +50,7 @@ impl LiveConnection {
         connection_name: String,
         environment: EnvironmentTag,
         generation: u64,
+        tunnel: Option<SshTunnel>,
     ) -> Self {
         Self {
             id,
@@ -54,6 +59,7 @@ impl LiveConnection {
             connection_name,
             environment,
             generation,
+            _tunnel: tunnel,
             state: std::sync::RwLock::new(LifecycleState::Open),
             active_ops: AtomicUsize::new(0),
             drained: Notify::new(),
