@@ -8,25 +8,25 @@
   <div class="fixed bottom-4 right-4 z-[70] flex flex-col gap-2 w-80 select-none">
     {#each toasts.items as toast (toast.id)}
       <div
-        class={`flex items-start gap-2 rounded-lg border px-3 py-2 shadow-2xl text-[11px] animate-in slide-in-from-right duration-150 ${
+        class={`flex items-start gap-2.5 rounded-lg border px-3 py-2.5 shadow-2xl text-[11px] bg-panel ${
           toast.kind === 'error'
-            ? 'bg-rose-950/90 border-rose-700/50 text-rose-200'
+            ? 'border-err-edge text-fg'
             : toast.kind === 'success'
-              ? 'bg-emerald-950/90 border-emerald-700/50 text-emerald-200'
-              : 'bg-elevated/95 border-strong text-fg'
+              ? 'border-ok-edge text-fg'
+              : 'border-strong text-fg'
         }`}
         role="alert"
       >
         {#if toast.kind === 'error'}
-          <AlertCircle class="w-3.5 h-3.5 mt-0.5 shrink-0 text-rose-400" />
+          <AlertCircle class="w-3.5 h-3.5 mt-0.5 shrink-0 text-err" />
         {:else if toast.kind === 'success'}
-          <CheckCircle2 class="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-400" />
+          <CheckCircle2 class="w-3.5 h-3.5 mt-0.5 shrink-0 text-ok" />
         {:else}
-          <Info class="w-3.5 h-3.5 mt-0.5 shrink-0 text-sky-400" />
+          <Info class="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent" />
         {/if}
-        <span class="flex-1 break-words select-text">{toast.message}</span>
+        <span class="flex-1 break-words select-text leading-relaxed">{toast.message}</span>
         <button
-          class="p-0.5 rounded hover:bg-white/10 shrink-0"
+          class="p-0.5 rounded hover:bg-hover text-muted hover:text-fg shrink-0"
           onclick={() => toasts.dismiss(toast.id)}
           title={t('common.dismiss')}
         >

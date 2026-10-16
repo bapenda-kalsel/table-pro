@@ -227,9 +227,9 @@
     <span
       class={`font-mono ${
         step.detail.toUpperCase().includes('SCAN') && !step.detail.toUpperCase().includes('USING INDEX')
-          ? 'text-amber-300'
+          ? 'text-warn'
           : step.detail.toUpperCase().includes('USING INDEX')
-            ? 'text-emerald-300'
+            ? 'text-ok'
             : 'text-fg2'
       }`}
     >
@@ -246,41 +246,41 @@
   <div class="h-10 border-b border-edge bg-panel flex items-center justify-between px-3">
     <div class="flex items-center gap-2">
       <button
-        class="flex items-center gap-1.5 px-3 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white font-semibold transition-colors shadow-sm disabled:opacity-50"
+        class="flex items-center gap-1.5 px-3 py-1 rounded-md bg-accent-strong hover:opacity-95 text-white font-semibold transition-all disabled:opacity-50"
         onclick={runCurrentQuery}
         disabled={isExecuting}
         title={t('editor.run_hint')}
       >
         <Play class="w-3.5 h-3.5 fill-current" />
         <span>{isExecuting ? t('editor.running') : t('editor.run')}</span>
-        <kbd class="ml-1 text-[10px] text-sky-200 font-mono">⌘⏎</kbd>
+        <kbd class="ml-1 text-[10px] opacity-85 font-mono">⌘⏎</kbd>
       </button>
 
       <button
-        class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-elevated hover:bg-hover text-fg transition-colors border border-strong/50 disabled:opacity-50"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-elevated hover:bg-hover text-fg transition-colors border border-edge disabled:opacity-50"
         onclick={explainCurrentQuery}
         disabled={isExplaining}
         title={t('editor.explain_hint')}
       >
-        <Network class="w-3.5 h-3.5 text-violet-400" />
+        <Network class="w-3.5 h-3.5 text-muted" />
         <span>{isExplaining ? t('editor.explaining') : t('editor.explain')}</span>
       </button>
 
       <!-- Snippets dropdown -->
       <div class="relative">
         <button
-          class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-elevated hover:bg-hover text-fg transition-colors border border-strong/50"
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-elevated hover:bg-hover text-fg transition-colors border border-edge"
           onclick={() => (isSnippetOpen = !isSnippetOpen)}
           title={t('editor.snippets_hint')}
         >
-          <BookMarked class="w-3.5 h-3.5 text-emerald-400" />
+          <BookMarked class="w-3.5 h-3.5 text-muted" />
           <span>{t('editor.snippets')}</span>
         </button>
         {#if isSnippetOpen}
           <div class="absolute left-0 top-8 w-80 rounded-lg border border-edge bg-elevated shadow-2xl z-40 overflow-hidden">
             <div class="max-h-56 overflow-y-auto p-1.5 space-y-0.5">
               {#if workspace.snippets.length === 0}
-                <div class="p-3 text-faint italic text-[11px]">{t('editor.no_snippets')}</div>
+                <div class="p-3 text-faint text-[11px]">{t('editor.no_snippets')}</div>
               {:else}
                 {#each workspace.snippets as snip}
                   <div class="group flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-hover cursor-pointer"
@@ -295,7 +295,7 @@
                       <div class="text-[10px] text-faint font-mono truncate">{snip.sql}</div>
                     </div>
                     <button
-                      class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-rose-500/20 text-faint hover:text-rose-400 shrink-0"
+                      class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-err-bg text-faint hover:text-err shrink-0"
                       onclick={(e) => { e.stopPropagation(); workspace.deleteSnippet(snip.id); }}
                       title={t('editor.snippet_delete_hint')}
                     >
@@ -312,10 +312,10 @@
                 bind:value={snippetName}
                 placeholder={t('editor.snippet_save_ph')}
                 onkeydown={(e) => e.key === 'Enter' && saveCurrentAsSnippet()}
-                class="flex-1 bg-app border border-edge rounded px-2 py-1 text-fg placeholder-faint focus:outline-none focus:border-sky-500 text-[11px]"
+                class="flex-1 bg-input border border-edge rounded px-2 py-1 text-fg placeholder-faint focus:outline-none focus:border-accent text-[11px]"
               />
               <button
-                class="px-2.5 py-1 rounded bg-sky-600/80 hover:bg-sky-500 text-white font-medium disabled:opacity-40"
+                class="px-2.5 py-1 rounded bg-accent-strong hover:opacity-95 text-white font-medium disabled:opacity-40"
                 onclick={saveCurrentAsSnippet}
                 disabled={!snippetName.trim()}
               >
@@ -327,23 +327,23 @@
       </div>
 
       {#if workspace.activeConnection?.environment === 'production'}
-        <span class="flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/15 border border-rose-500/40 text-rose-400 text-[10px] font-bold uppercase">
+        <span class="flex items-center gap-1 px-2 py-0.5 rounded bg-err-bg border border-err-edge text-err text-[10px] font-mono font-bold uppercase">
           <ShieldAlert class="w-3 h-3" /> {t('editor.prod_guard')}
         </span>
       {/if}
 
       {#if result}
         <div class="flex items-center gap-2 text-muted font-mono text-[11px] ml-2">
-          <div class="flex items-center gap-1 text-emerald-400">
+          <div class="flex items-center gap-1 text-ok">
             <CheckCircle2 class="w-3.5 h-3.5" />
             <span>{t('editor.success')}</span>
           </div>
-          <span>•</span>
+          <span class="text-faint">/</span>
           <div class="flex items-center gap-1">
             <Clock class="w-3 h-3 text-faint" />
             <span>{result.execution_time_ms.toFixed(2)} ms</span>
           </div>
-          <span>•</span>
+          <span class="text-faint">/</span>
           <span>{t('common.rows', { count: result.affected_rows })}</span>
         </div>
       {/if}
@@ -352,21 +352,19 @@
     <!-- Export Button -->
     {#if result && result.rows.length > 0}
       <button
-        class="flex items-center gap-1 px-2.5 py-1 rounded bg-elevated hover:bg-hover text-fg transition-colors"
+        class="flex items-center gap-1 px-2.5 py-1 rounded-md bg-elevated hover:bg-hover border border-edge text-fg transition-colors"
         onclick={exportCsv}
         title={t('editor.export_hint')}
       >
-        <Download class="w-3.5 h-3.5 text-sky-400" />
+        <Download class="w-3.5 h-3.5 text-muted" />
         <span>{t('editor.export')}</span>
       </button>
     {/if}
   </div>
 
-  <!-- AI Assistant bar: prompt → generated SQL preview → insert/replace.
-       The generated SQL lands in the editor so it still flows through
-       review and the production guard like any hand-written query. -->
+  <!-- AI Assistant bar -->
   <div class="border-b border-edge bg-panel px-3 py-1.5 flex items-center gap-2">
-    <Sparkles class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+    <Sparkles class="w-3.5 h-3.5 text-accent shrink-0" />
     <input
       type="text"
       bind:value={aiPrompt}
@@ -375,7 +373,7 @@
       class="flex-1 bg-transparent text-fg placeholder-faint focus:outline-none text-[11px] font-mono"
     />
     <button
-      class="px-2.5 py-0.5 rounded bg-sky-600/80 hover:bg-sky-500 text-white text-[11px] font-medium transition-colors disabled:opacity-40"
+      class="px-2.5 py-0.5 rounded bg-accent-soft hover:opacity-90 border border-accent-edge text-accent text-[11px] font-medium transition-colors disabled:opacity-40"
       onclick={generateWithAi}
       disabled={aiBusy || !aiPrompt.trim() || !workspace.activeConnection}
     >
@@ -393,17 +391,17 @@
   {#if aiError || aiResult}
     <div class="border-b border-edge bg-subtle px-3 py-2 space-y-1.5">
       {#if aiError}
-        <div class="text-rose-400 text-[11px]">{aiError}</div>
+        <div class="text-err text-[11px]">{aiError}</div>
       {/if}
       {#if aiResult}
         <pre class="font-mono text-[11px] text-fg whitespace-pre-wrap select-text">{aiResult}</pre>
         <div class="flex items-center gap-2">
           <button
-            class="px-2 py-0.5 rounded bg-sky-600/80 hover:bg-sky-500 text-white text-[11px] font-medium"
+            class="px-2.5 py-0.5 rounded bg-accent-strong hover:opacity-95 text-white text-[11px] font-medium"
             onclick={() => applyAiSql('insert')}
           >{t('ai.insert')}</button>
           <button
-            class="px-2 py-0.5 rounded bg-elevated hover:bg-hover text-fg text-[11px] border border-strong/40"
+            class="px-2.5 py-0.5 rounded bg-elevated hover:bg-hover text-fg text-[11px] border border-edge"
             onclick={() => applyAiSql('replace')}
           >{t('ai.replace')}</button>
           <span class="flex-1"></span>
@@ -424,11 +422,11 @@
     {#if isExecuting && result}
       <!-- Re-run progress bar: keeps the previous result visible while executing -->
       <div class="absolute top-0 left-0 right-0 h-0.5 z-20 overflow-hidden">
-        <div class="h-full w-1/3 bg-sky-500" style="animation: query-slide 1s ease-in-out infinite"></div>
+        <div class="h-full w-1/3 bg-accent" style="animation: query-slide 1s ease-in-out infinite"></div>
       </div>
     {/if}
     {#if errorMsg}
-      <div class="p-4 bg-rose-950/40 border-l-4 border-rose-500 text-rose-300 font-mono text-xs select-text">
+      <div class="p-4 bg-err-bg border-l-2 border-err text-err font-mono text-xs select-text">
         <div class="font-bold mb-1">{t('editor.exec_error')}</div>
         <div>{errorMsg}</div>
       </div>
@@ -436,12 +434,12 @@
       <!-- Explain Plan / Query Audit view -->
       <div class="p-4 space-y-3">
         <div class="flex items-center gap-2 font-semibold text-fg">
-          <Network class="w-4 h-4 text-violet-400" />
+          <Network class="w-4 h-4 text-accent" />
           <span>{t('editor.plan_title')}</span>
           {#if planSeverity === 'warn'}
-            <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-400 font-bold uppercase">{t('editor.plan_warn')}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-warn-bg border border-warn-edge text-warn font-mono font-bold uppercase">{t('editor.plan_warn')}</span>
           {:else}
-            <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 font-bold uppercase">{t('editor.plan_ok')}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-ok-bg border border-ok-edge text-ok font-mono font-bold uppercase">{t('editor.plan_ok')}</span>
           {/if}
         </div>
 
@@ -449,13 +447,13 @@
         <div class="space-y-1.5">
           {#each plan.warnings as w}
             <div
-              class={`flex items-start gap-2 p-2 rounded border text-[11px] ${
+              class={`flex items-start gap-2 p-2.5 rounded-md border text-[11px] ${
                 plan.has_full_scan
-                  ? 'bg-amber-950/25 border-amber-900/40 text-amber-200'
-                  : 'bg-emerald-950/25 border-emerald-900/40 text-emerald-200'
+                  ? 'bg-warn-bg border-warn-edge text-warn'
+                  : 'bg-ok-bg border-ok-edge text-ok'
               }`}
             >
-              <AlertTriangle class={`w-3.5 h-3.5 mt-0.5 shrink-0 ${plan.has_full_scan ? 'text-amber-400' : 'text-emerald-400'}`} />
+              <AlertTriangle class={`w-3.5 h-3.5 mt-0.5 shrink-0 ${plan.has_full_scan ? 'text-warn' : 'text-ok'}`} />
               <span class="select-text">{w}</span>
             </div>
           {/each}
@@ -464,7 +462,7 @@
         <!-- Plan tree -->
         <div class="rounded-lg border border-edge bg-subtle p-3 font-mono text-[11px]">
           {#if plan.steps.length === 0}
-            <div class="text-faint italic">{t('editor.no_plan')}</div>
+            <div class="text-faint">{t('editor.no_plan')}</div>
           {:else}
             {#each plan.steps as step}
               {@render planNode(step, 0)}
@@ -502,9 +500,12 @@
         {/each}
       </div>
     {:else if !result}
-      <div class="p-8 text-center text-faint font-mono text-xs">
-        {t('editor.hint_run')}
-        <div class="mt-2 text-[10px]">{t('editor.hint_select')}</div>
+      <div class="p-10 flex flex-col items-center justify-center text-center gap-2.5 text-faint">
+        <div class="w-9 h-9 rounded-lg bg-elevated border border-edge flex items-center justify-center text-muted">
+          <Play class="w-4 h-4" />
+        </div>
+        <div class="font-medium text-fg2 text-xs">{t('editor.hint_run')}</div>
+        <div class="text-[11px] text-muted max-w-md">{t('editor.hint_select')}</div>
       </div>
     {:else}
       <table class="w-full text-left border-collapse font-mono text-[11px]">
@@ -523,7 +524,7 @@
               {#each row as cell}
                 <td class="px-3 py-1.5 border-r border-edge text-fg2 truncate max-w-xs select-text">
                   {#if cell === null}
-                    <span class="text-faint italic">NULL</span>
+                    <span class="text-faint">NULL</span>
                   {:else}
                     {cell}
                   {/if}
@@ -542,8 +543,8 @@
       <div class="flex items-center gap-3">
         <span class="text-muted">{t('common.rows', { count: result.rows.length.toLocaleString() })}</span>
         {#if isExecuting}
-          <span class="text-sky-400 flex items-center gap-1">
-            <span class="w-2.5 h-2.5 border border-sky-500 border-t-transparent rounded-full animate-spin inline-block"></span>
+          <span class="text-accent flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse inline-block"></span>
             {t('editor.running')}
           </span>
         {/if}
@@ -551,7 +552,7 @@
 
       <div class="flex items-center gap-1">
         <select
-          class="bg-app border border-edge rounded px-1.5 py-0.5 text-fg2 focus:outline-none focus:border-sky-500"
+          class="bg-app border border-edge rounded px-1.5 py-0.5 text-fg2 focus:outline-none focus:border-accent"
           title={t('grid.rows_per_page')}
           value={pageSize}
           onchange={(e) => setPageSize(Number((e.target as HTMLSelectElement).value))}

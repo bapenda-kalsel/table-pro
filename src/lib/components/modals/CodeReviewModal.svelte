@@ -23,7 +23,7 @@
       <!-- Modal Header -->
       <div class="p-4 border-b border-edge flex items-center justify-between bg-subtle">
         <div class="flex items-center gap-2.5">
-          <div class="p-2 rounded bg-sky-500/20 text-sky-400">
+          <div class="p-2 rounded-md bg-accent-soft border border-accent-edge text-accent">
             <Code class="w-4 h-4" />
           </div>
           <div>
@@ -43,7 +43,7 @@
 
       <!-- Production warning -->
       {#if workspace.activeConnection?.environment === 'production'}
-        <div class="px-4 py-2 bg-rose-950/50 border-b border-rose-900/50 flex items-center gap-2 text-[11px] text-rose-300">
+        <div class="px-4 py-2 bg-err-bg border-b border-err-edge flex items-center gap-2 text-[11px] text-err">
           <AlertTriangle class="w-3.5 h-3.5 shrink-0" />
           <span class="font-semibold">{t('review.prod_warn', { name: workspace.activeConnection.name })}</span>
         </div>
@@ -51,16 +51,16 @@
 
       <!-- Stats Summary Banner -->
       <div class="px-4 py-2.5 border-b border-edge bg-subtle flex items-center gap-4 text-[11px] font-mono">
-        <span class="text-emerald-400 font-semibold">{t('review.inserts', { count: workspace.stagedDiff.insert_count })}</span>
-        <span class="text-amber-400 font-semibold">{t('review.updates', { count: workspace.stagedDiff.update_count })}</span>
-        <span class="text-rose-400 font-semibold">{t('review.deletes', { count: workspace.stagedDiff.delete_count })}</span>
+        <span class="text-ok font-semibold">{t('review.inserts', { count: workspace.stagedDiff.insert_count })}</span>
+        <span class="text-warn font-semibold">{t('review.updates', { count: workspace.stagedDiff.update_count })}</span>
+        <span class="text-err font-semibold">{t('review.deletes', { count: workspace.stagedDiff.delete_count })}</span>
         <span class="text-faint ml-auto font-sans text-[10px]">{t('review.atomic')}</span>
       </div>
 
       <!-- SQL Statements List -->
       <div class="flex-1 overflow-y-auto p-4 space-y-2 font-mono text-[11px] bg-app">
         {#if workspace.stagedDiff.generated_sql.length === 0}
-          <div class="text-faint italic p-4 text-center">{t('review.empty')}</div>
+          <div class="text-faint p-4 text-center">{t('review.empty')}</div>
         {:else}
           {#each workspace.stagedDiff.generated_sql as sql, i}
             {@const isInsert = sql.startsWith('INSERT')}
@@ -68,17 +68,17 @@
             {@const isDelete = sql.startsWith('DELETE')}
 
             <div
-              class={`p-2.5 rounded border select-text break-all ${
+              class={`p-2.5 rounded-md border select-text break-all ${
                 isInsert
-                  ? 'bg-emerald-950/20 border-emerald-900/40 text-emerald-300'
+                  ? 'bg-ok-bg border-ok-edge text-ok'
                   : isUpdate
-                  ? 'bg-amber-950/20 border-amber-900/40 text-amber-300'
+                  ? 'bg-warn-bg border-warn-edge text-warn'
                   : isDelete
-                  ? 'bg-rose-950/20 border-rose-900/40 text-rose-300'
+                  ? 'bg-err-bg border-err-edge text-err'
                   : 'bg-panel border-edge text-fg'
               }`}
             >
-              <div class="flex items-center gap-2 mb-1 opacity-60 text-[10px]">
+              <div class="flex items-center gap-2 mb-1 opacity-70 text-[10px]">
                 <span>#{i + 1}</span>
                 <span>{isInsert ? 'INSERT' : isUpdate ? 'UPDATE' : 'DELETE'}</span>
               </div>
@@ -91,7 +91,7 @@
       <!-- Modal Footer -->
       <div class="p-3 border-t border-edge bg-panel flex items-center justify-between">
         <button
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded bg-elevated hover:bg-hover text-fg2 font-medium transition-colors"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-elevated hover:bg-hover border border-edge text-fg2 font-medium transition-colors"
           onclick={handleDiscard}
         >
           <RotateCcw class="w-3.5 h-3.5" />
@@ -100,13 +100,13 @@
 
         <div class="flex items-center gap-2">
           <button
-            class="px-3 py-1.5 rounded hover:bg-hover text-muted hover:text-fg"
+            class="px-3 py-1.5 rounded-md hover:bg-hover text-muted hover:text-fg"
             onclick={() => (workspace.isCodeReviewModalOpen = false)}
           >
             {t('common.cancel')}
           </button>
           <button
-            class="flex items-center gap-1.5 px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-md transition-colors"
+            class="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-accent-strong hover:opacity-95 text-white font-semibold transition-colors"
             onclick={handleCommit}
           >
             <Save class="w-3.5 h-3.5" />

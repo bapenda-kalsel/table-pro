@@ -21,6 +21,8 @@
     Edit3,
     Download,
     FolderOpen,
+    KeyRound,
+    Table,
   } from 'lucide-svelte';
   import { openPath } from '@tauri-apps/plugin-opener';
   import { buildInsertSql } from '$lib/utils/sql';
@@ -284,35 +286,35 @@
         placeholder={t('grid.filter_placeholder')}
         bind:value={filterText}
         onkeydown={(e) => e.key === 'Enter' && applyFilter()}
-        class="w-full bg-subtle border border-edge rounded px-2.5 py-1 text-fg placeholder-faint focus:outline-none focus:border-sky-500 transition-colors font-mono text-[11px]"
+        class="w-full bg-input border border-edge rounded-md px-2.5 py-1 text-fg placeholder-faint focus:outline-none focus:border-accent transition-colors font-mono text-[11px]"
       />
       <button
-        class="px-2.5 py-1 rounded bg-elevated hover:bg-hover text-fg2 font-medium transition-colors"
+        class="px-2.5 py-1 rounded-md bg-elevated hover:bg-hover border border-edge text-fg2 font-medium transition-colors"
         onclick={applyFilter}
       >
         {t('common.apply')}
       </button>
     </div>
 
-    <!-- Actions: Add Row, Delete Row, Bulk Edit (HeidiSQL), Discard, Commit -->
+    <!-- Actions: Add Row, Delete Row, Bulk Edit, Discard, Commit -->
     <div class="flex items-center gap-1.5">
       <button
-        class="flex items-center gap-1 px-2 py-1 rounded bg-elevated hover:bg-hover text-fg transition-colors"
+        class="flex items-center gap-1 px-2.5 py-1 rounded-md bg-elevated hover:bg-hover border border-edge text-fg transition-colors"
         onclick={addNewRow}
         title={t('grid.add_row_hint')}
       >
-        <Plus class="w-3.5 h-3.5 text-emerald-400" />
+        <Plus class="w-3.5 h-3.5 text-accent" />
         <span>{t('grid.add_row')}</span>
       </button>
 
       <!-- Export dropdown -->
       <div class="relative">
         <button
-          class="flex items-center gap-1 px-2 py-1 rounded bg-elevated hover:bg-hover text-fg transition-colors"
+          class="flex items-center gap-1 px-2.5 py-1 rounded-md bg-elevated hover:bg-hover border border-edge text-fg transition-colors"
           onclick={() => (isExportMenuOpen = !isExportMenuOpen)}
           title={t('grid.export_hint')}
         >
-          <Download class="w-3.5 h-3.5 text-sky-400" />
+          <Download class="w-3.5 h-3.5 text-muted" />
           <span>{t('common.export')}</span>
         </button>
         {#if isExportMenuOpen}
@@ -345,9 +347,9 @@
       </div>
 
       {#if selectedRows.size > 0}
-        <!-- Bulk Edit Button (HeidiSQL) -->
+        <!-- Bulk Edit Button -->
         <button
-          class="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition-colors"
+          class="flex items-center gap-1 px-2.5 py-1 rounded-md bg-warn-bg hover:opacity-90 text-warn border border-warn-edge transition-colors disabled:opacity-40"
           onclick={() => {
             if (tableData && tableData.columns.length > 0) {
               bulkEditColumn = tableData.columns[0];
@@ -362,7 +364,7 @@
         </button>
 
         <button
-          class="flex items-center gap-1 px-2 py-1 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition-colors disabled:opacity-40 disabled:hover:bg-rose-500/20"
+          class="flex items-center gap-1 px-2.5 py-1 rounded-md bg-err-bg hover:opacity-90 text-err border border-err-edge transition-colors disabled:opacity-40"
           onclick={markDeleteSelected}
           title={hasPk ? t('grid.delete_hint') : t('grid.no_pk')}
           disabled={!hasPk}
@@ -380,7 +382,7 @@
     {#if loading && tableData}
       <!-- Page-change progress bar: keeps current rows visible while fetching -->
       <div class="absolute top-0 left-0 right-0 h-0.5 z-20 overflow-hidden">
-        <div class="h-full w-1/3 bg-sky-500 animate-[slide_1s_ease-in-out_infinite]" style="animation-name: datagrid-slide"></div>
+        <div class="h-full w-1/3 bg-accent animate-[slide_1s_ease-in-out_infinite]" style="animation-name: datagrid-slide"></div>
       </div>
     {/if}
     {#if loading && !tableData}
@@ -408,7 +410,12 @@
         {/each}
       </div>
     {:else if !tableData || tableData.columns.length === 0}
-      <div class="p-8 text-center text-faint">{t('grid.empty')}</div>
+      <div class="p-12 flex flex-col items-center justify-center text-center gap-3 text-faint">
+        <div class="w-10 h-10 rounded-xl bg-elevated border border-edge flex items-center justify-center text-muted">
+          <Table class="w-5 h-5" />
+        </div>
+        <div class="text-xs font-medium text-fg2">{t('grid.empty')}</div>
+      </div>
     {:else}
       <table class="w-full text-left border-collapse font-mono text-[11px]">
         <!-- Table Header -->
@@ -425,7 +432,7 @@
                     selectedRows.clear();
                   }
                 }}
-                class="rounded bg-elevated border-strong"
+                class="rounded bg-elevated border-strong accent-accent"
               />
             </th>
             {#each tableData.columns as col (col)}
@@ -435,16 +442,18 @@
                 onclick={() => toggleSort(col)}
               >
                 <div class="flex items-center justify-between gap-1">
-                  <div class="flex items-center gap-1 truncate">
+                  <div class="flex items-center gap-1.5 truncate">
                     {#if isPk}
-                      <span class="text-amber-400 font-bold" title={t('grid.pk')}>🔑</span>
+                      <span title={t('grid.pk')} class="inline-flex">
+                        <KeyRound class="w-3 h-3 text-warn shrink-0" />
+                      </span>
                     {/if}
-                    <span class={isPk ? 'text-amber-200 font-semibold' : 'text-fg font-medium'}>
+                    <span class={isPk ? 'text-warn font-semibold' : 'text-fg font-medium'}>
                       {col}
                     </span>
                   </div>
                   {#if sortBy === col}
-                    <span class="text-sky-400 text-[10px]">{sortDir === 'ASC' ? '▲' : '▼'}</span>
+                    <span class="text-accent text-[10px]">{sortDir === 'ASC' ? '▲' : '▼'}</span>
                   {/if}
                 </div>
               </th>
@@ -454,19 +463,19 @@
 
         <!-- Table Body -->
         <tbody>
-          <!-- 1. Staged Inserts (Green Rows) -->
+          <!-- 1. Staged Inserts -->
           {#each staged.inserts as newRow, i}
-            <tr class="bg-emerald-950/40 text-emerald-300 border-b border-emerald-900/40 font-medium">
+            <tr class="bg-ok-bg text-ok border-b border-ok-edge font-medium">
               <td class="px-2 py-1 border-r border-edge text-center text-[10px]">
-                <span class="text-emerald-400 font-bold">+</span>
+                <span class="text-ok font-bold">+</span>
               </td>
               {#each tableData.columns as col}
-                <td class="px-3 py-1 border-r border-emerald-900/30 truncate">
+                <td class="px-3 py-1 border-r border-ok-edge truncate">
                   <input
                     type="text"
                     bind:value={newRow[col]}
                     placeholder={t('grid.auto')}
-                    class="w-full bg-transparent text-emerald-200 focus:outline-none"
+                    class="w-full bg-transparent text-fg placeholder-faint focus:outline-none"
                   />
                 </td>
               {/each}
@@ -484,11 +493,11 @@
             <tr
               class={`border-b border-edge transition-colors ${
                 isDeleted
-                  ? 'bg-rose-950/40 text-rose-400 line-through'
+                  ? 'bg-err-bg text-err line-through'
                   : isUpdated
-                  ? 'bg-amber-950/40 text-amber-300'
+                  ? 'bg-warn-bg text-warn'
                   : isSelected
-                  ? 'bg-sky-950/40 text-fg'
+                  ? 'bg-accent-soft text-fg'
                   : rowIdx % 2 === 0
                   ? 'bg-app hover:bg-hover'
                   : 'bg-subtle hover:bg-hover'
@@ -513,7 +522,7 @@
                       selectedRows.delete(rowIdx);
                     }
                   }}
-                  class="rounded bg-elevated border-strong"
+                  class="rounded bg-elevated border-strong accent-accent"
                 />
               </td>
 
@@ -528,7 +537,7 @@
 
                 <td
                   class={`px-3 py-1.5 border-r border-edge truncate max-w-[240px] cursor-cell ${
-                    isCellModified ? 'bg-amber-500/20 text-amber-200 font-semibold' : ''
+                    isCellModified ? 'bg-warn-bg text-warn font-semibold' : ''
                   }`}
                   ondblclick={(e) => {
                     e.stopPropagation();
@@ -545,12 +554,12 @@
                       }}
                       onblur={() => saveCellEdit(row)}
                       use:focusOnMount
-                      class="w-full bg-panel border border-sky-500 text-fg px-1 py-0.5 rounded focus:outline-none text-[11px]"
+                      class="w-full bg-panel border border-accent text-fg px-1 py-0.5 rounded focus:outline-none text-[11px]"
                     />
                   {:else if displayVal === null}
-                    <span class="text-faint italic">NULL</span>
+                    <span class="text-faint">NULL</span>
                   {:else if typeof displayVal === 'boolean'}
-                    <span class={displayVal ? 'text-emerald-400' : 'text-rose-400'}>
+                    <span class={displayVal ? 'text-ok' : 'text-err'}>
                       {displayVal ? 'true' : 'false'}
                     </span>
                   {:else}
@@ -571,13 +580,13 @@
       <div class="flex items-center gap-3">
         <span class="text-muted">{t('common.rows', { count: tableData.total_rows.toLocaleString() })}</span>
         {#if filterText}
-          <span class="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 truncate max-w-[220px]" title={`WHERE ${filterText}`}>
+          <span class="px-1.5 py-0.5 rounded bg-warn-bg border border-warn-edge text-warn truncate max-w-[220px]" title={`WHERE ${filterText}`}>
             {t('grid.filtered')}: {filterText}
           </span>
         {/if}
         {#if loading}
-          <span class="text-sky-400 flex items-center gap-1">
-            <span class="w-2.5 h-2.5 border border-sky-500 border-t-transparent rounded-full animate-spin inline-block"></span>
+          <span class="text-accent flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse inline-block"></span>
             {t('grid.loading')}
           </span>
         {/if}
@@ -585,7 +594,7 @@
 
       <div class="flex items-center gap-1">
         <select
-          class="bg-app border border-edge rounded px-1.5 py-0.5 text-fg2 focus:outline-none focus:border-sky-500"
+          class="bg-app border border-edge rounded px-1.5 py-0.5 text-fg2 focus:outline-none focus:border-accent"
           title={t('grid.rows_per_page')}
           value={limit}
           onchange={(e) => setLimit(Number((e.target as HTMLSelectElement).value))}
@@ -634,20 +643,20 @@
 
   <!-- TablePlus Signature Floating Commit / Discard Banner -->
   {#if totalStaged > 0}
-    <div class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-elevated border border-amber-500/50 shadow-2xl rounded-lg px-4 py-2 flex items-center gap-4 z-20 animate-in fade-in slide-in-from-bottom-2">
+    <div class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-panel border border-warn-edge shadow-2xl rounded-xl px-4 py-2 flex items-center gap-4 z-20">
       <div class="flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+        <span class="w-2 h-2 rounded-full bg-warn animate-pulse"></span>
         <span class="font-semibold text-fg">
           {t('grid.pending_changes', { count: totalStaged })}
         </span>
-        <span class="text-[10px] text-muted">
+        <span class="text-[10px] font-mono text-muted">
           {t('grid.pending_breakdown', { inserts: staged.inserts.length, updates: staged.updates.length, deletes: staged.deletes.length })}
         </span>
       </div>
 
       <div class="flex items-center gap-2">
         <button
-          class="px-2.5 py-1 rounded bg-elevated hover:bg-hover text-fg2 transition-colors flex items-center gap-1"
+          class="px-2.5 py-1 rounded-md bg-elevated hover:bg-hover border border-edge text-fg2 transition-colors flex items-center gap-1"
           onclick={requestDiscard}
           title={t('grid.discard_hint')}
         >
@@ -656,7 +665,7 @@
         </button>
 
         <button
-          class="px-3 py-1 rounded bg-elevated hover:bg-hover text-sky-400 border border-sky-500/30 transition-colors flex items-center gap-1 font-medium"
+          class="px-3 py-1 rounded-md bg-accent-soft hover:opacity-90 text-accent border border-accent-edge transition-colors flex items-center gap-1 font-medium"
           onclick={() => workspace.previewStaged(tableName, primaryKeys)}
           title={t('grid.review_hint')}
         >
@@ -665,7 +674,7 @@
         </button>
 
         <button
-          class="px-3.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors flex items-center gap-1 shadow-md"
+          class="px-3.5 py-1 rounded-md bg-accent-strong hover:opacity-95 text-white font-semibold transition-colors flex items-center gap-1"
           onclick={() => workspace.commitStaged(tableName, primaryKeys)}
           title={t('grid.commit_hint')}
         >
@@ -678,7 +687,7 @@
 
   <!-- Row Detail Drawer (Spacebar) -->
   {#if detailDrawerRow && tableData}
-    <div class="absolute right-0 top-0 bottom-0 w-80 bg-panel border-l border-edge shadow-2xl flex flex-col z-30 animate-in slide-in-from-right duration-150">
+    <div class="absolute right-0 top-0 bottom-0 w-80 bg-panel border-l border-edge shadow-2xl flex flex-col z-30">
       <div class="h-10 border-b border-edge px-3 flex items-center justify-between text-fg font-semibold">
         <span>{t('grid.row_detail')}</span>
         <button class="p-1 rounded hover:bg-hover" onclick={() => (detailDrawerRow = null)}>
@@ -698,38 +707,38 @@
       <!-- Row actions (Workbench-style: copy row as INSERT / JSON) -->
       <div class="p-3 border-t border-edge flex gap-2">
         <button
-          class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded bg-elevated hover:bg-hover text-fg text-[11px] transition-colors"
+          class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md bg-elevated hover:bg-hover border border-edge text-fg text-[11px] transition-colors"
           onclick={() => copyRowAs('insert')}
         >
-          <Copy class="w-3 h-3 text-emerald-400" />
+          <Copy class="w-3 h-3 text-accent" />
           <span>{copiedKind === 'insert' ? t('common.copied') : t('grid.copy_insert')}</span>
         </button>
         <button
-          class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded bg-elevated hover:bg-hover text-fg text-[11px] transition-colors"
+          class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md bg-elevated hover:bg-hover border border-edge text-fg text-[11px] transition-colors"
           onclick={() => copyRowAs('json')}
         >
-          <Copy class="w-3 h-3 text-sky-400" />
+          <Copy class="w-3 h-3 text-muted" />
           <span>{copiedKind === 'json' ? t('common.copied') : t('grid.copy_json')}</span>
         </button>
       </div>
     </div>
   {/if}
 
-  <!-- Bulk Edit Modal (HeidiSQL Feature) -->
+  <!-- Bulk Edit Modal -->
   {#if isBulkEditOpen && tableData}
     <div class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50">
-      <div class="w-96 bg-panel border border-edge rounded-lg shadow-2xl p-4 space-y-4">
+      <div class="w-96 bg-panel border border-edge rounded-xl shadow-2xl p-4 space-y-4">
         <h3 class="font-bold text-fg text-sm">{t('grid.bulk_title', { count: selectedRows.size })}</h3>
         <p class="text-muted text-[11px]">
           {t('grid.bulk_desc')}
         </p>
 
-        <div class="space-y-1">
-          <label for="bulk-col" class="text-[10px] text-muted uppercase font-semibold">{t('grid.bulk_column')}</label>
+        <div class="space-y-1.5">
+          <label for="bulk-col" class="text-[10px] text-muted uppercase font-semibold block">{t('grid.bulk_column')}</label>
           <select
             id="bulk-col"
             bind:value={bulkEditColumn}
-            class="w-full bg-app border border-edge rounded px-2 py-1.5 text-fg focus:outline-none focus:border-sky-500"
+            class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg focus:outline-none focus:border-accent"
           >
             {#each tableData.columns as col}
               <option value={col}>{col}</option>
@@ -737,26 +746,26 @@
           </select>
         </div>
 
-        <div class="space-y-1">
-          <label for="bulk-val" class="text-[10px] text-muted uppercase font-semibold">{t('grid.bulk_value')}</label>
+        <div class="space-y-1.5">
+          <label for="bulk-val" class="text-[10px] text-muted uppercase font-semibold block">{t('grid.bulk_value')}</label>
           <input
             id="bulk-val"
             type="text"
             bind:value={bulkEditValue}
             placeholder={t('grid.bulk_value_ph')}
-            class="w-full bg-app border border-edge rounded px-2.5 py-1.5 text-fg focus:outline-none focus:border-sky-500 font-mono text-[11px]"
+            class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg focus:outline-none focus:border-accent font-mono text-[11px]"
           />
         </div>
 
         <div class="flex justify-end gap-2 pt-2">
           <button
-            class="px-3 py-1 rounded bg-elevated hover:bg-hover text-fg2"
+            class="px-3 py-1.5 rounded-md bg-elevated hover:bg-hover border border-edge text-fg2"
             onclick={() => (isBulkEditOpen = false)}
           >
             {t('common.cancel')}
           </button>
           <button
-            class="px-4 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white font-semibold"
+            class="px-4 py-1.5 rounded-md bg-accent-strong hover:opacity-95 text-white font-semibold"
             onclick={applyBulkEdit}
           >
             {t('grid.bulk_apply')}

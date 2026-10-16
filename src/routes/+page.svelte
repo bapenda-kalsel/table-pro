@@ -66,7 +66,7 @@
 
 <svelte:window onkeydown={handleKeyDown} />
 
-<div class="h-screen w-screen flex flex-col bg-app text-fg overflow-hidden select-none">
+<div class="min-h-[100dvh] h-[100dvh] w-screen flex flex-col bg-app text-fg overflow-hidden select-none">
   <!-- Top: TablePro Native Title Bar -->
   <TitleBar />
 
@@ -84,24 +84,33 @@
       <div class="flex-1 flex flex-col overflow-hidden relative">
         {#if !activeTab}
           <!-- Empty Workspace State -->
-          <div class="flex-1 flex flex-col items-center justify-center text-center p-8 text-faint space-y-4">
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-500/10 to-indigo-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
-              <Database class="w-8 h-8" />
-            </div>
-            <div>
-              <h2 class="text-base font-semibold text-fg">{t('welcome.title')}</h2>
-              <p class="text-xs text-faint mt-1 max-w-sm">
-                {t('welcome.sub_pre')} <kbd class="px-1.5 py-0.5 rounded bg-elevated text-fg2 font-mono">⌘P</kbd> {t('welcome.sub_post')}
-              </p>
-            </div>
-            <div class="flex items-center gap-3">
-              <button
-                class="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs shadow-md transition-colors"
-                onclick={() => workspace.openQueryTab()}
-              >
-                <Terminal class="w-3.5 h-3.5" />
-                <span>{t('welcome.new_query')}</span>
-              </button>
+          <div class="flex-1 flex flex-col items-center justify-center text-center p-8 text-faint">
+            <div class="max-w-md w-full rounded-xl border border-edge bg-panel/60 p-8 flex flex-col items-center space-y-4">
+              <div class="w-12 h-12 rounded-xl bg-accent-soft border border-accent-edge flex items-center justify-center text-accent">
+                <Database class="w-6 h-6" />
+              </div>
+              <div class="space-y-1.5">
+                <h2 class="text-sm font-semibold tracking-tight text-fg">{t('welcome.title')}</h2>
+                <p class="text-xs text-muted leading-relaxed max-w-[44ch]">
+                  {t('welcome.sub_pre')} <kbd class="px-1.5 py-0.5 rounded bg-elevated border border-edge text-fg2 font-mono text-[10px]">⌘P</kbd> {t('welcome.sub_post')}
+                </p>
+              </div>
+              <div class="flex items-center gap-2.5 pt-1">
+                <button
+                  class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-accent-strong hover:opacity-95 text-white font-medium text-xs transition-all"
+                  onclick={() => workspace.openQueryTab()}
+                >
+                  <Terminal class="w-3.5 h-3.5" />
+                  <span>{t('welcome.new_query')}</span>
+                </button>
+                <button
+                  class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-elevated hover:bg-hover border border-edge text-fg2 font-medium text-xs transition-all"
+                  onclick={() => (workspace.isConnectionModalOpen = true)}
+                >
+                  <Plus class="w-3.5 h-3.5 text-accent" />
+                  <span>{t('conn.title')}</span>
+                </button>
+              </div>
             </div>
           </div>
         {:else}

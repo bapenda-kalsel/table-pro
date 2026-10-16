@@ -68,13 +68,13 @@
 </script>
 
 <aside class="w-60 h-full border-r border-edge bg-subtle flex flex-col text-xs select-none">
-  <!-- Sidebar Header / Search with Regex toggle (HeidiSQL Feature) -->
+  <!-- Sidebar Header / Search with Regex toggle -->
   <div class="p-2 border-b border-edge flex flex-col gap-1.5">
     <div class="flex items-center justify-between text-muted font-semibold uppercase tracking-wider text-[10px] px-1">
       <span>{t('sidebar.title')}</span>
       <div class="flex items-center gap-0.5">
         <button
-          class="p-1 rounded hover:bg-hover text-muted hover:text-emerald-400 transition-colors"
+          class="p-1 rounded hover:bg-hover text-muted hover:text-accent transition-colors"
           onclick={() => (workspace.isCreateTableModalOpen = true)}
           title={t('sidebar.create_table_hint')}
         >
@@ -104,14 +104,14 @@
         type="text"
         placeholder={isRegex ? t('sidebar.filter_regex') : t('sidebar.filter_placeholder')}
         bind:value={searchTerm}
-        class="w-full bg-elevated border border-edge rounded pl-7 pr-12 py-1 text-fg placeholder-faint focus:outline-none focus:border-sky-500 transition-colors text-[11px]"
+        class="w-full bg-input border border-edge rounded-md pl-7 pr-12 py-1 text-fg placeholder-faint focus:outline-none focus:border-accent transition-colors text-[11px]"
       />
       <!-- Regex toggle badge -->
       <button
         type="button"
         class={`absolute right-1 text-[9px] font-mono px-1 py-0.5 rounded border transition-colors ${
           isRegex
-            ? 'bg-sky-500/20 text-sky-400 border-sky-500/50 font-bold'
+            ? 'bg-accent-soft text-accent border-accent-edge font-bold'
             : 'text-faint border-strong hover:text-fg2'
         }`}
         onclick={() => (isRegex = !isRegex)}
@@ -123,19 +123,39 @@
   </div>
 
   <!-- Tables List -->
-  <div class="flex-1 overflow-y-auto p-1 space-y-0.5">
+  <div class="flex-1 overflow-y-auto p-1.5 space-y-0.5">
     {#if workspace.tables.length === 0}
-      <div class="p-4 text-center text-faint">
+      <div class="p-6 text-center flex flex-col items-center gap-2.5 text-faint">
+        <div class="w-8 h-8 rounded-lg bg-elevated border border-edge flex items-center justify-center text-muted">
+          <Table class="w-4 h-4" />
+        </div>
+        <div class="text-[11px] text-muted">
+          {#if workspace.isConnected}
+            {t('sidebar.no_tables')}
+          {:else}
+            {t('sidebar.not_connected')}
+          {/if}
+        </div>
         {#if workspace.isConnected}
-          {t('sidebar.no_tables')}
+          <button
+            class="px-2.5 py-1 rounded-md bg-elevated hover:bg-hover border border-edge text-fg2 text-[11px] font-medium"
+            onclick={() => (workspace.isCreateTableModalOpen = true)}
+          >
+            + {t('ct.create')}
+          </button>
         {:else}
-          {t('sidebar.not_connected')}
+          <button
+            class="px-2.5 py-1 rounded-md bg-accent-soft hover:opacity-90 border border-accent-edge text-accent text-[11px] font-medium"
+            onclick={() => (workspace.isConnectionModalOpen = true)}
+          >
+            {t('conn.title')}
+          </button>
         {/if}
       </div>
     {:else}
       {#each filteredTables as tbl (tbl.name)}
         <div
-          class={`group flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors ${
+          class={`group flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
             workspace.activeTable === tbl.name
               ? 'bg-elevated text-fg font-medium'
               : 'hover:bg-elevated text-muted hover:text-fg'
@@ -152,9 +172,9 @@
         >
           <div class="flex items-center gap-2 truncate">
             {#if tbl.table_type === 'view'}
-              <Eye class="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <Eye class="w-3.5 h-3.5 text-muted shrink-0" />
             {:else}
-              <Table class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <Table class={`w-3.5 h-3.5 shrink-0 ${workspace.activeTable === tbl.name ? 'text-accent' : 'text-muted group-hover:text-fg2'}`} />
             {/if}
             <span class="truncate">{tbl.name}</span>
           </div>
@@ -168,7 +188,7 @@
 
             <!-- Structure icon on hover -->
             <button
-              class="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-hover text-muted hover:text-amber-400 transition-opacity"
+              class="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-hover text-muted hover:text-accent transition-opacity"
               title={t('sidebar.structure_hint')}
               onclick={(e) => {
                 e.stopPropagation();
@@ -184,16 +204,16 @@
   </div>
 
   <!-- Bottom quick stats -->
-  <div class="p-2 border-t border-edge text-[10px] text-faint flex justify-between items-center bg-panel/50">
+  <div class="p-2 border-t border-edge text-[10px] font-mono text-faint flex justify-between items-center bg-panel/50">
     <span>{t('sidebar.object_count', { count: filteredTables.length })}</span>
-    <span>{workspace.serverVersion || t('sidebar.default_engine')}</span>
+    <span class="truncate max-w-[120px]">{workspace.serverVersion || t('sidebar.default_engine')}</span>
   </div>
 </aside>
 
 <!-- Table Context Menu -->
 {#if ctxMenu}
   <div
-    class="fixed w-44 rounded-md border border-edge bg-elevated shadow-2xl z-50 p-0.5 space-y-px text-[11px]"
+    class="fixed w-44 rounded-lg border border-edge bg-elevated shadow-2xl z-50 p-1 space-y-0.5 text-[11px]"
     style={`left: ${ctxMenu.x}px; top: ${ctxMenu.y}px`}
     oncontextmenu={(e) => e.preventDefault()}
     role="menu"
@@ -204,21 +224,21 @@
       onclick={() => runCtxAction(openData)}
       role="menuitem"
     >
-      <Table class="w-3 h-3 text-sky-400" /> {t('sidebar.ctx_open')}
+      <Table class="w-3 h-3 text-accent" /> {t('sidebar.ctx_open')}
     </button>
     <button
       class="w-full text-left px-2 py-1 rounded text-fg hover:bg-hover transition-colors flex items-center gap-1.5"
       onclick={() => runCtxAction((tb) => workspace.openStructureTab(tb))}
       role="menuitem"
     >
-      <FileCode class="w-3 h-3 text-amber-400" /> {t('sidebar.ctx_structure')}
+      <FileCode class="w-3 h-3 text-muted" /> {t('sidebar.ctx_structure')}
     </button>
     <button
       class="w-full text-left px-2 py-1 rounded text-fg hover:bg-hover transition-colors flex items-center gap-1.5"
       onclick={() => runCtxAction(openInQueryEditor)}
       role="menuitem"
     >
-      <Terminal class="w-3 h-3 text-emerald-400" /> {t('sidebar.ctx_query')}
+      <Terminal class="w-3 h-3 text-muted" /> {t('sidebar.ctx_query')}
     </button>
     <div class="border-t border-edge my-0.5"></div>
     <button

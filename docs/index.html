@@ -3,225 +3,660 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TablePro - Open-source native database client</title>
-  <meta name="description" content="TablePro is a free, open-source desktop database client for SQLite, MySQL, and PostgreSQL. Built with Tauri 2, SvelteKit 5, and Rust." />
+  <title>TablePro - Native Database Workbench for SQLite, MySQL, and PostgreSQL</title>
+  <meta name="description" content="TablePro is a fast, open-source native desktop database client for SQLite, MySQL, and PostgreSQL. Built with Tauri 2, SvelteKit 5, and Rust." />
   <meta property="og:title" content="TablePro" />
   <meta property="og:description" content="Open-source native database client for SQLite, MySQL, and PostgreSQL." />
   <meta property="og:image" content="https://bapenda-kalsel.github.io/table-pro/icon.png" />
   <meta property="og:type" content="website" />
   <link rel="icon" href="icon.png" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css" />
   <style>
     :root {
-      --bg: #0a0a0b;
-      --bg-raised: #131316;
-      --bg-tint: rgba(52, 211, 153, 0.07);
-      --border: #26262b;
-      --border-accent: rgba(52, 211, 153, 0.35);
-      --text: #e4e4e7;
-      --text-dim: #a1a1aa;
+      --bg: #0e0e11;
+      --bg-panel: #141418;
+      --bg-elevated: #1c1c22;
+      --bg-tint: rgba(45, 212, 191, 0.08);
+      --border: #27272a;
+      --border-strong: #3f3f46;
+      --border-accent: rgba(45, 212, 191, 0.34);
+      --text: #f4f4f5;
+      --text-body: #d4d4d8;
+      --text-muted: #a1a1aa;
       --text-faint: #71717a;
-      --accent: #34d399;
-      --accent-ink: #052e1f;
-      --radius-card: 14px;
-      --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      --accent: #2dd4bf;
+      --accent-strong: #0d9488;
+      --accent-ink: #042f2e;
+      --ok: #34d399;
+      --ok-bg: rgba(16, 185, 129, 0.12);
+      --warn: #fbbf24;
+      --warn-bg: rgba(245, 158, 11, 0.12);
+      --err: #fb7185;
+      --err-bg: rgba(244, 63, 94, 0.12);
+      --radius-outer: 16px;
+      --radius-inner: 10px;
+      --spring: cubic-bezier(0.16, 1, 0.3, 1);
+      --font: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      --shadow-ambient: 0 24px 60px rgba(6, 10, 14, 0.55);
     }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f4f4f5;
+        --bg-panel: #ffffff;
+        --bg-elevated: #efeff1;
+        --bg-tint: rgba(13, 148, 136, 0.08);
+        --border: #e4e4e7;
+        --border-strong: #d4d4d8;
+        --border-accent: rgba(13, 148, 136, 0.32);
+        --text: #18181b;
+        --text-body: #27272a;
+        --text-muted: #52525b;
+        --text-faint: #71717a;
+        --accent: #0d9488;
+        --accent-strong: #0f766e;
+        --accent-ink: #ffffff;
+        --ok: #047857;
+        --ok-bg: rgba(16, 185, 129, 0.1);
+        --warn: #b45309;
+        --warn-bg: rgba(245, 158, 11, 0.12);
+        --err: #be123c;
+        --err-bg: rgba(244, 63, 94, 0.1);
+        --shadow-ambient: 0 20px 48px rgba(24, 24, 27, 0.09);
+      }
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; overflow-x: hidden; }
     body {
       background: var(--bg);
       color: var(--text);
       font-family: var(--font);
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
     a { color: inherit; text-decoration: none; }
-    img { display: block; }
-    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+    img { display: block; max-width: 100%; }
+    code, pre, .mono {
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+    }
 
-    /* ---------- Nav ---------- */
+    /* Fixed subtle architectural grain overlay */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      pointer-events: none;
+      opacity: 0.025;
+      background-image: radial-gradient(var(--text) 0.75px, transparent 0.75px);
+      background-size: 16px 16px;
+    }
+
+    .wrap {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ---------- Navigation ---------- */
     nav {
-      position: sticky; top: 0; z-index: 10;
-      background: rgba(10, 10, 11, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      height: 68px;
+      background: color-mix(in srgb, var(--bg) 84%, transparent);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border);
     }
     .nav-inner {
-      display: flex; align-items: center; justify-content: space-between;
-      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 100%;
     }
-    .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 15px; }
-    .brand img { width: 26px; height: 26px; }
-    .nav-links { display: flex; align-items: center; gap: 28px; font-size: 14px; color: var(--text-dim); }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 15px;
+      letter-spacing: -0.02em;
+    }
+    .brand img {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+    .nav-links a {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      transition: color 0.2s var(--spring);
+    }
     .nav-links a:hover { color: var(--text); }
     .nav-links .gh {
       color: var(--text);
       border: 1px solid var(--border);
+      background: var(--bg-panel);
       border-radius: 999px;
-      padding: 7px 16px;
-      display: inline-flex; align-items: center; gap: 8px;
-      transition: border-color 0.2s;
+      padding: 0 16px;
+      height: 38px;
+      min-height: 38px;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: border-color 0.25s var(--spring), transform 0.15s var(--spring);
     }
     .nav-links .gh:hover { border-color: var(--border-accent); }
-    .nav-links .gh img { width: 16px; height: 16px; }
+    .nav-links .gh:active { transform: translateY(1px); }
 
-    /* ---------- Hero ---------- */
+    /* ---------- Hero Section (Asymmetric Split + Inline Visual Typography) ---------- */
     .hero {
-      display: grid; grid-template-columns: 1.15fr 0.85fr;
-      align-items: center; gap: 48px;
-      padding-top: 96px; padding-bottom: 80px;
+      min-height: calc(100dvh - 68px);
+      display: grid;
+      grid-template-columns: 1.08fr 0.92fr;
+      align-items: center;
+      gap: 56px;
+      padding-top: clamp(2.5rem, 5vw, 5rem);
+      padding-bottom: clamp(3rem, 6vw, 5.5rem);
     }
     .hero h1 {
-      font-size: clamp(2.4rem, 5vw, 3.6rem);
+      font-size: clamp(2.35rem, 4.6vw, 3.75rem);
       line-height: 1.08;
-      letter-spacing: -0.03em;
-      font-weight: 700;
+      letter-spacing: -0.035em;
+      font-weight: 650;
+      color: var(--text);
     }
-    .hero h1 em { font-style: normal; color: var(--accent); }
-    .hero p {
-      margin-top: 20px;
-      font-size: 1.1rem;
-      color: var(--text-dim);
-      max-width: 30rem;
-    }
-    .cta-row { margin-top: 32px; display: flex; gap: 12px; flex-wrap: wrap; }
-    .btn {
-      display: inline-flex; align-items: center; gap: 8px;
+    .inline-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      vertical-align: middle;
+      height: 0.92em;
+      padding: 0 0.42em;
+      margin: 0 0.08em;
       border-radius: 999px;
-      padding: 12px 26px;
-      font-size: 15px; font-weight: 600;
-      transition: transform 0.15s, box-shadow 0.2s, border-color 0.2s;
-      white-space: nowrap;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-strong);
+      font-family: var(--mono);
+      font-size: 0.42em;
+      font-weight: 500;
+      letter-spacing: 0;
+      color: var(--accent);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
-    .btn:active { transform: translateY(1px); }
-    .btn-primary { background: var(--accent); color: var(--accent-ink); }
-    .btn-primary:hover { box-shadow: 0 4px 24px rgba(52, 211, 153, 0.3); }
-    .btn-ghost { border: 1px solid var(--border); color: var(--text); }
-    .btn-ghost:hover { border-color: var(--border-accent); }
-    .hero-icon {
-      width: min(100%, 340px);
-      justify-self: center;
-      filter: drop-shadow(0 24px 60px rgba(52, 211, 153, 0.15));
+    .inline-pill img {
+      width: 1.35em;
+      height: 1.35em;
+      border-radius: 4px;
+    }
+    .hero-sub {
+      margin-top: 22px;
+      font-size: clamp(1rem, 1.25vw, 1.125rem);
+      color: var(--text-muted);
+      max-width: 46ch;
+      line-height: 1.6;
+    }
+    .cta-row {
+      margin-top: 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      border-radius: 999px;
+      padding: 8px 8px 8px 24px;
+      min-height: 48px;
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-size: 14.5px;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: transform 0.18s var(--spring), opacity 0.2s var(--spring);
+    }
+    .btn-primary:hover { opacity: 0.94; }
+    .btn-primary:active { transform: translateY(1px); }
+    .btn-icon-nest {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: rgba(4, 47, 46, 0.16);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.25s var(--spring);
+    }
+    .btn-primary:hover .btn-icon-nest {
+      transform: translate(2px, -1px);
+    }
+
+    /* Machined Double-Bezel Workbench Preview */
+    .bezel-shell {
+      padding: 6px;
+      border-radius: calc(var(--radius-outer) + 4px);
+      background: color-mix(in srgb, var(--bg-panel) 70%, transparent);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-ambient);
+    }
+    .workbench-card {
+      border-radius: var(--radius-outer);
+      background: var(--bg-panel);
+      border: 1px solid var(--border-strong);
+      overflow: hidden;
+    }
+    .wb-bar {
+      height: 38px;
+      padding: 0 14px;
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .wb-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .wb-brand img { width: 16px; height: 16px; }
+    .wb-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--bg-tint);
+      border: 1px solid var(--border-accent);
+      color: var(--accent);
+      font-size: 10px;
+    }
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent);
+      animation: status-pulse 2.2s var(--spring) infinite;
+    }
+    @keyframes status-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .wb-grid {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 11.5px;
+    }
+    .wb-grid th, .wb-grid td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      text-align: left;
+    }
+    .wb-grid th {
+      color: var(--text-muted);
+      font-weight: 500;
+      background: var(--bg);
+    }
+    .wb-grid tr.row-ins {
+      background: var(--ok-bg);
+      color: var(--ok);
+    }
+    .wb-grid tr.row-upd {
+      background: var(--warn-bg);
+      color: var(--warn);
+    }
+    .wb-grid tr.row-del {
+      background: var(--err-bg);
+      color: var(--err);
+      text-decoration: line-through;
+    }
+    .wb-footer {
+      padding: 10px 14px;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .wb-commit-pill {
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: var(--accent-strong);
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 10.5px;
     }
 
     /* ---------- Sections ---------- */
-    section { padding: 72px 0; border-top: 1px solid var(--border); }
+    section {
+      padding: clamp(3.5rem, 7vw, 6rem) 0;
+      border-top: 1px solid var(--border);
+    }
     .eyebrow {
       font-family: var(--mono);
       font-size: 11px;
-      letter-spacing: 0.2em;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
       color: var(--accent);
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
     h2 {
-      font-size: clamp(1.6rem, 3vw, 2.2rem);
-      letter-spacing: -0.02em;
+      font-size: clamp(1.65rem, 3vw, 2.35rem);
+      letter-spacing: -0.028em;
+      line-height: 1.14;
       font-weight: 650;
-      margin-bottom: 40px;
+      color: var(--text);
+    }
+    .section-lead {
+      margin-top: 12px;
+      color: var(--text-muted);
+      max-width: 58ch;
+      font-size: 15px;
     }
 
-    /* ---------- Engines ---------- */
-    .engines { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .engine {
+    /* ---------- Asymmetric Engine Architecture (No 3-equal-cards) ---------- */
+    .engine-layout {
+      margin-top: 40px;
+      display: grid;
+      grid-template-columns: 0.85fr 1.15fr;
+      gap: 24px;
+      align-items: stretch;
+    }
+    .engine-primary {
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-outer);
+      padding: 32px;
+      background: var(--bg-tint);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .engine-stack {
+      display: grid;
+      grid-template-rows: 1fr 1fr;
+      gap: 16px;
+    }
+    .engine-card {
       border: 1px solid var(--border);
-      border-radius: var(--radius-card);
-      padding: 28px;
-      background: var(--bg-raised);
-      display: flex; flex-direction: column; gap: 6px;
-      transition: border-color 0.2s;
+      border-radius: var(--radius-outer);
+      padding: 24px 28px;
+      background: var(--bg-panel);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 20px;
+      transition: border-color 0.25s var(--spring), transform 0.25s var(--spring);
     }
-    .engine:hover { border-color: var(--border-accent); }
-    .engine img { width: 34px; height: 34px; margin-bottom: 10px; }
-    .engine strong { font-size: 16px; font-weight: 600; }
-    .engine span { font-size: 13.5px; color: var(--text-faint); }
+    .engine-card:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-2px);
+    }
+    .engine-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .engine-head strong {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .engine-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      max-width: 48ch;
+    }
+    .engine-meta {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-faint);
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
 
-    /* ---------- Features bento ---------- */
-    .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+    /* ---------- Features Bento (6-cell asymmetric rhythm) ---------- */
+    .bento {
+      margin-top: 40px;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+    }
     .cell {
       border: 1px solid var(--border);
-      border-radius: var(--radius-card);
+      border-radius: var(--radius-outer);
       padding: 28px;
-      background: var(--bg-raised);
-      transition: border-color 0.2s;
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+      transition: border-color 0.25s var(--spring);
     }
-    .cell:hover { border-color: var(--border-accent); }
-    .cell h3 { font-size: 16.5px; font-weight: 600; margin-bottom: 8px; }
-    .cell p { font-size: 14px; color: var(--text-dim); }
-    .c-a { grid-column: span 4; background: var(--bg-tint); border-color: var(--border-accent); }
-    .c-b { grid-column: span 2; }
-    .c-c, .c-d, .c-e { grid-column: span 2; }
-    .c-f { grid-column: span 6; }
-    .c-f p { max-width: 60ch; }
+    .cell:hover { border-color: var(--border-strong); }
+    .cell h3 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+    }
+    .cell p {
+      font-size: 14px;
+      color: var(--text-muted);
+      max-width: 56ch;
+    }
+    .cell-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .c-1 { grid-column: span 7; background: var(--bg-tint); border-color: var(--border-accent); }
+    .c-2 { grid-column: span 5; }
+    .c-3 { grid-column: span 4; }
+    .c-4 { grid-column: span 4; background: var(--bg-elevated); }
+    .c-5 { grid-column: span 4; }
+    .c-6 { grid-column: span 12; flex-direction: row; align-items: center; justify-content: space-between; gap: 32px; }
 
-    /* ---------- Staged changes split ---------- */
-    .split { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 48px; align-items: center; }
+    /* ---------- Staged Changes Split ---------- */
+    .split {
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 48px;
+      align-items: center;
+    }
     .split h2 { margin-bottom: 16px; }
-    .split .lead { color: var(--text-dim); max-width: 42ch; }
+    .split .lead {
+      color: var(--text-muted);
+      max-width: 46ch;
+      font-size: 15px;
+    }
     .split .lead + .lead { margin-top: 12px; }
-    pre {
-      background: var(--bg-raised);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-card);
+    pre.sql-block {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-outer);
       padding: 24px;
       overflow-x: auto;
       font-family: var(--mono);
-      font-size: 13px;
-      line-height: 1.7;
-      color: var(--text-dim);
+      font-size: 12.5px;
+      line-height: 1.75;
+      color: var(--text-body);
     }
     pre .cm { color: var(--text-faint); }
-    pre .kw { color: var(--accent); }
+    pre .kw { color: var(--accent); font-weight: 600; }
 
-    /* ---------- Download ---------- */
-    .dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
-    .dl a {
+    /* ---------- Asymmetric Release & Source Section ---------- */
+    .release-grid {
+      margin-top: 36px;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 16px;
+    }
+    .dl-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .dl-row {
       border: 1px solid var(--border);
-      border-radius: var(--radius-card);
-      padding: 24px 28px;
-      background: var(--bg-raised);
-      display: flex; align-items: center; justify-content: space-between;
-      transition: border-color 0.2s, transform 0.15s;
+      border-radius: var(--radius-inner);
+      padding: 18px 22px;
+      background: var(--bg-panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 64px;
+      transition: border-color 0.2s var(--spring), transform 0.15s var(--spring);
     }
-    .dl a:hover { border-color: var(--border-accent); }
-    .dl a:active { transform: translateY(1px); }
-    .dl strong { font-size: 15px; font-weight: 600; display: block; }
-    .dl span { font-size: 13px; color: var(--text-faint); }
-    .dl .arr { color: var(--accent); font-size: 18px; }
-    .build-line {
-      font-family: var(--mono); font-size: 13.5px; color: var(--text-faint);
+    .dl-row:hover { border-color: var(--border-accent); }
+    .dl-row:active { transform: translateY(1px); }
+    .dl-row strong {
+      font-size: 15px;
+      font-weight: 600;
+      margin-right: 10px;
     }
-    .build-line code { color: var(--text-dim); }
+    .dl-row span.pkg {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-faint);
+    }
+    .dl-arrow {
+      font-family: var(--mono);
+      color: var(--accent);
+      font-size: 15px;
+    }
+    .source-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-outer);
+      padding: 28px;
+      background: var(--bg-elevated);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .source-card h3 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .source-card p {
+      font-size: 13.5px;
+      color: var(--text-muted);
+    }
+    .source-cmd {
+      padding: 14px 16px;
+      border-radius: var(--radius-inner);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-body);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
 
     /* ---------- Footer ---------- */
     footer {
       border-top: 1px solid var(--border);
       padding: 40px 0;
-      font-size: 13.5px;
+      font-size: 13px;
       color: var(--text-faint);
-      display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
     }
-    footer a { color: var(--text-dim); }
-    footer a:hover { color: var(--accent); }
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .footer-links {
+      display: flex;
+      gap: 20px;
+    }
+    .footer-links a {
+      color: var(--text-muted);
+      transition: color 0.2s var(--spring);
+    }
+    .footer-links a:hover { color: var(--accent); }
 
-    /* ---------- Reveal ---------- */
-    .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.6s ease, transform 0.6s ease; }
-    .reveal.in { opacity: 1; transform: none; }
+    /* ---------- Staggered Spring Reveal ---------- */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition:
+        opacity 0.65s var(--spring),
+        transform 0.65s var(--spring);
+      transition-delay: var(--d, 0ms);
+    }
+    .reveal.in {
+      opacity: 1;
+      transform: translateY(0);
+    }
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
       .reveal { opacity: 1; transform: none; transition: none; }
+      .pulse-dot { animation: none; }
     }
 
-    /* ---------- Mobile ---------- */
+    /* ---------- Strict Single-Column Mobile Collapse (< 768px) ---------- */
     @media (max-width: 768px) {
-      .hero { grid-template-columns: 1fr; padding-top: 56px; padding-bottom: 56px; }
-      .hero-icon { width: 180px; order: -1; justify-self: start; }
-      .engines, .dl { grid-template-columns: 1fr; }
+      .hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        padding-top: 40px;
+        padding-bottom: 48px;
+        gap: 36px;
+      }
+      .inline-pill {
+        display: inline-flex;
+        margin-top: 4px;
+      }
+      .engine-layout,
+      .split,
+      .release-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      .engine-stack { grid-template-rows: auto; }
+      .engine-card { grid-template-columns: 1fr; gap: 12px; }
       .bento { grid-template-columns: 1fr; }
-      .c-a, .c-b, .c-c, .c-d, .c-e, .c-f { grid-column: span 1; }
-      .split { grid-template-columns: 1fr; gap: 28px; }
-      .nav-links { gap: 18px; }
+      .c-1, .c-2, .c-3, .c-4, .c-5, .c-6 {
+        grid-column: span 1;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .nav-links { gap: 16px; }
       .nav-links .hide-sm { display: none; }
     }
   </style>
@@ -230,146 +665,301 @@
 
 <nav>
   <div class="wrap nav-inner">
-    <a class="brand" href="#"><img src="icon.png" alt="TablePro logo" />TablePro</a>
+    <a class="brand" href="#">
+      <img src="icon.png" alt="TablePro app icon" />
+      <span>TablePro</span>
+    </a>
     <div class="nav-links">
       <a href="#engines" class="hide-sm">Engines</a>
-      <a href="#features" class="hide-sm">Features</a>
+      <a href="#features" class="hide-sm">Capabilities</a>
       <a href="#download">Download</a>
       <a class="gh" href="https://github.com/bapenda-kalsel/table-pro">
-        <img src="https://cdn.simpleicons.org/github/e4e4e7" alt="" />GitHub
+        <span>GitHub Repository</span>
       </a>
     </div>
   </div>
 </nav>
 
-<header class="wrap hero">
-  <div>
-    <h1>A native database client, <em>free forever.</em></h1>
-    <p>SQLite, MySQL, and PostgreSQL in one fast desktop app. Open source, no subscription.</p>
-    <div class="cta-row">
-      <a class="btn btn-primary" href="https://github.com/bapenda-kalsel/table-pro/releases/latest">Download</a>
-      <a class="btn btn-ghost" href="https://github.com/bapenda-kalsel/table-pro">View on GitHub</a>
-    </div>
-  </div>
-  <img class="hero-icon" src="icon.png" alt="TablePro app icon" />
-</header>
-
-<section id="engines">
-  <div class="wrap">
-    <h2>Three engines, one driver interface</h2>
-    <div class="engines reveal">
-      <div class="engine">
-        <img src="https://cdn.simpleicons.org/sqlite/e4e4e7" alt="SQLite" />
-        <strong>SQLite</strong>
-        <span>Zero-setup local files and in-memory databases</span>
-      </div>
-      <div class="engine">
-        <img src="https://cdn.simpleicons.org/mysql/e4e4e7" alt="MySQL" />
-        <strong>MySQL / MariaDB</strong>
-        <span>Full browsing, editing, and maintenance over TCP</span>
-      </div>
-      <div class="engine">
-        <img src="https://cdn.simpleicons.org/postgresql/e4e4e7" alt="PostgreSQL" />
-        <strong>PostgreSQL</strong>
-        <span>Public schema support with explain plans and DDL</span>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="features">
-  <div class="wrap">
-    <p class="eyebrow">Features</p>
-    <h2>Built like a workbench, not a toy</h2>
-    <div class="bento">
-      <div class="cell c-a reveal">
-        <h3>Staged changes workflow</h3>
-        <p>Inline edits, inserts, and deletes are buffered locally with color-coded highlighting. Review the generated SQL in a diff modal, then commit everything in one atomic transaction.</p>
-      </div>
-      <div class="cell c-b reveal">
-        <h3>Keychain security</h3>
-        <p>Passwords live in the OS keychain, never in config files. Production-tagged connections require confirmation for writes.</p>
-      </div>
-      <div class="cell c-c reveal">
-        <h3>SQL editor</h3>
-        <p>CodeMirror 6 with live schema autocomplete, explain plans, and result export.</p>
-      </div>
-      <div class="cell c-d reveal">
-        <h3>ER diagram</h3>
-        <p>Reverse-engineers every table and foreign key into a draggable visual map.</p>
-      </div>
-      <div class="cell c-e reveal">
-        <h3>Audit trail</h3>
-        <p>Every query persisted with stats, filtering, and CSV or JSON export.</p>
-      </div>
-      <div class="cell c-f reveal">
-        <h3>Power tools included</h3>
-        <p>Global text search across all columns, CSV import, VACUUM and backup maintenance, saved snippets, visual table designer, and a quick switcher. The UI speaks English and Bahasa Indonesia.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap split">
+<main>
+  <header class="wrap hero">
     <div>
-      <h2>See the SQL before it runs</h2>
-      <p class="lead">Staged edits are translated into real statements you can read first. Nothing hidden, nothing surprising.</p>
-      <p class="lead">Approve the batch and it commits atomically. Reject it and your database stays untouched.</p>
+      <h1>
+        Inspect
+        <span class="inline-pill"><img src="icon.png" alt="" />3 Drivers</span>
+        and commit
+        <span class="inline-pill">ATOMIC SQL</span>
+        in one native workbench.
+      </h1>
+      <p class="hero-sub">
+        SQLite, MySQL, and PostgreSQL in a fast desktop client built with Rust and Tauri 2. Open source and free forever.
+      </p>
+      <div class="cta-row">
+        <a class="btn-primary" href="https://github.com/bapenda-kalsel/table-pro/releases/latest">
+          <span>Download Latest Release</span>
+          <span class="btn-icon-nest" aria-hidden="true">&rarr;</span>
+        </a>
+      </div>
     </div>
-    <pre><span class="cm">-- staged changes on employees (3 operations)</span>
+
+    <!-- Live Architectural Workbench Preview -->
+    <div class="bezel-shell reveal" style="--d: 80ms">
+      <div class="workbench-card" role="region" aria-label="TablePro Staged Changes Preview">
+        <div class="wb-bar">
+          <div class="wb-brand">
+            <img src="icon.png" alt="" />
+            <span>production_ledger / public.employees</span>
+          </div>
+          <div class="wb-status">
+            <span class="pulse-dot"></span>
+            <span>3 STAGED OPS</span>
+          </div>
+        </div>
+        <table class="wb-grid">
+          <thead>
+            <tr>
+              <th>op</th>
+              <th>id</th>
+              <th>employee_name</th>
+              <th>department</th>
+              <th>salary_usd</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="row-ins">
+              <td>+</td>
+              <td>104</td>
+              <td>Ayu Pratama</td>
+              <td>Revenue Analytics</td>
+              <td>8,450</td>
+            </tr>
+            <tr class="row-upd">
+              <td>~</td>
+              <td>42</td>
+              <td>Rizky Hidayat</td>
+              <td>Core Infrastructure</td>
+              <td>9,200</td>
+            </tr>
+            <tr>
+              <td></td>
+              <td>19</td>
+              <td>Nadia Kusuma</td>
+              <td>Database Reliability</td>
+              <td>8,900</td>
+            </tr>
+            <tr class="row-del">
+              <td>-</td>
+              <td>7</td>
+              <td>Dimas Saputra</td>
+              <td>Legacy Migration</td>
+              <td>6,100</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="wb-footer">
+          <span>tx_isolation: SERIALIZABLE</span>
+          <span class="wb-commit-pill">Review &amp; Commit (⌘S)</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section id="engines">
+    <div class="wrap">
+      <p class="eyebrow">Unified Driver Architecture</p>
+      <h2>Three database engines, one native Rust runtime</h2>
+      <p class="section-lead">
+        Connect to local embedded files or remote production clusters over SSH and strict TLS verification without switching tools.
+      </p>
+
+      <div class="engine-layout">
+        <div class="engine-primary reveal" style="--d: 0ms">
+          <div>
+            <div class="engine-head">
+              <strong>PostgreSQL &amp; MySQL / MariaDB</strong>
+            </div>
+            <p class="engine-desc">
+              Full TCP connection pooling with SSH bastion tunneling (password or Ed25519 key file), configurable TLS verification (Verify Full / Verify CA), live schema introspection, foreign key graph mapping, and execution plan auditing.
+            </p>
+          </div>
+          <div class="mono" style="font-size: 12px; color: var(--accent);">
+            TLS 1.3 / VERIFY_FULL / SSH TUNNEL / EXPLAIN PLAN
+          </div>
+        </div>
+
+        <div class="engine-stack">
+          <div class="engine-card reveal" style="--d: 80ms">
+            <div>
+              <div class="engine-head">
+                <strong>SQLite Embedded &amp; In-Memory</strong>
+              </div>
+              <p class="engine-desc">
+                Zero-setup local file browsing, WAL journal inspection, transactional table rebuilds for foreign keys, and instant in-memory scratchpads.
+              </p>
+            </div>
+            <span class="engine-meta">:memory: / .db</span>
+          </div>
+
+          <div class="engine-card reveal" style="--d: 140ms">
+            <div>
+              <div class="engine-head">
+                <strong>OS Keychain Credential Vault</strong>
+              </div>
+              <p class="engine-desc">
+                Database passwords, SSH passphrases, and AI API keys live strictly inside macOS Keychain, Windows Credential Manager, or Linux Secret Service.
+              </p>
+            </div>
+            <span class="engine-meta">Zero plaintext</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <h2>Engineered like a precision workbench</h2>
+
+      <div class="bento">
+        <article class="cell c-1 reveal" style="--d: 0ms">
+          <span class="cell-tag">TRANSACTION BUFFER</span>
+          <div>
+            <h3>Staged changes with SQL diff review</h3>
+            <p>Inline cell edits, row insertions, bulk updates, and deletions are buffered locally. Inspect the exact generated SQL statements and commit everything in a single atomic transaction.</p>
+          </div>
+        </article>
+
+        <article class="cell c-2 reveal" style="--d: 60ms">
+          <span class="cell-tag">WRITE GUARD</span>
+          <div>
+            <h3>Production challenge tokens</h3>
+            <p>Connections tagged as Production require explicit confirmation and cryptographic one-shot approval tokens before executing destructive DDL or write statements.</p>
+          </div>
+        </article>
+
+        <article class="cell c-3 reveal" style="--d: 120ms">
+          <span class="cell-tag">CODEMIRROR 6</span>
+          <div>
+            <h3>Schema-aware SQL editor</h3>
+            <p>Live table and column autocomplete, selection-only execution, saved query snippets, and visual EXPLAIN plan trees with full-scan warnings.</p>
+          </div>
+        </article>
+
+        <article class="cell c-4 reveal" style="--d: 180ms">
+          <span class="cell-tag">VISUAL GRAPH</span>
+          <div>
+            <h3>Interactive ER diagram</h3>
+            <p>Reverse-engineers tables and foreign keys into a draggable canvas with a visual relation builder that generates and executes ADD CONSTRAINT DDL.</p>
+          </div>
+        </article>
+
+        <article class="cell c-5 reveal" style="--d: 240ms">
+          <span class="cell-tag">TELEMETRY</span>
+          <div>
+            <h3>Persistent query audit trail</h3>
+            <p>Every statement is recorded with execution latency, affected row counts, and error diagnostics, ready for instant filtering and CSV or JSON export.</p>
+          </div>
+        </article>
+
+        <article class="cell c-6 reveal" style="--d: 300ms">
+          <div>
+            <h3>Complete database operations suite</h3>
+            <p>Database-wide text search, CSV table import, XLSX/SQL/JSON export, VACUUM and integrity maintenance, visual table creation, and bilingual English and Bahasa Indonesia localization.</p>
+          </div>
+          <span class="engine-meta">⌘P Quick Switcher</span>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap split">
+      <div>
+        <p class="eyebrow">Deterministic Execution</p>
+        <h2>Read the exact SQL before it touches your data</h2>
+        <p class="lead">Staged edits translate into standard, parameterized SQL statements you can inspect line by line.</p>
+        <p class="lead">Approve the batch to commit atomically, or discard to leave your database untouched.</p>
+      </div>
+      <pre class="sql-block reveal"><span class="cm">-- staged changes on employees (3 operations)</span>
 <span class="kw">BEGIN TRANSACTION;</span>
 
-<span class="kw">UPDATE</span> employees
-<span class="kw">SET</span> salary = 7200
-<span class="kw">WHERE</span> id = 42;
+<span class="kw">UPDATE</span> "employees"
+<span class="kw">SET</span> "salary_usd" = 9200
+<span class="kw">WHERE</span> "id" = 42;
 
-<span class="kw">INSERT INTO</span> employees (name, role)
-<span class="kw">VALUES</span> ('Ayu Pratama', 'Analyst');
+<span class="kw">INSERT INTO</span> "employees" ("employee_name", "department", "salary_usd")
+<span class="kw">VALUES</span> ('Ayu Pratama', 'Revenue Analytics', 8450);
 
-<span class="kw">DELETE FROM</span> employees <span class="kw">WHERE</span> id = 7;
+<span class="kw">DELETE FROM</span> "employees" <span class="kw">WHERE</span> "id" = 7;
 
 <span class="kw">COMMIT;</span></pre>
-  </div>
-</section>
-
-<section id="download">
-  <div class="wrap">
-    <h2>Download</h2>
-    <div class="dl reveal">
-      <a href="https://github.com/bapenda-kalsel/table-pro/releases/latest">
-        <div><strong>macOS</strong><span>.dmg / .app</span></div>
-        <span class="arr">&rarr;</span>
-      </a>
-      <a href="https://github.com/bapenda-kalsel/table-pro/releases/latest">
-        <div><strong>Windows</strong><span>.msi / setup .exe</span></div>
-        <span class="arr">&rarr;</span>
-      </a>
-      <a href="https://github.com/bapenda-kalsel/table-pro/releases/latest">
-        <div><strong>Linux</strong><span>.deb / .AppImage</span></div>
-        <span class="arr">&rarr;</span>
-      </a>
     </div>
-    <p class="build-line">or build from source: <code>git clone https://github.com/bapenda-kalsel/table-pro && cd table-pro && pnpm install && pnpm tauri build</code></p>
-  </div>
-</section>
+  </section>
+
+  <section id="download">
+    <div class="wrap">
+      <h2>Download TablePro</h2>
+      <p class="section-lead">Native installers compiled for macOS, Windows, and Linux with automatic background update verification.</p>
+
+      <div class="release-grid">
+        <div class="dl-list reveal" style="--d: 0ms">
+          <a class="dl-row" href="https://github.com/bapenda-kalsel/table-pro/releases/latest">
+            <div>
+              <strong>macOS</strong>
+              <span class="pkg">Universal .dmg / Apple Silicon &amp; Intel</span>
+            </div>
+            <span class="dl-arrow">&rarr;</span>
+          </a>
+          <a class="dl-row" href="https://github.com/bapenda-kalsel/table-pro/releases/latest">
+            <div>
+              <strong>Windows</strong>
+              <span class="pkg">x64 .msi / NSIS setup .exe</span>
+            </div>
+            <span class="dl-arrow">&rarr;</span>
+          </a>
+          <a class="dl-row" href="https://github.com/bapenda-kalsel/table-pro/releases/latest">
+            <div>
+              <strong>Linux</strong>
+              <span class="pkg">Debian .deb / .AppImage</span>
+            </div>
+            <span class="dl-arrow">&rarr;</span>
+          </a>
+        </div>
+
+        <div class="source-card reveal" style="--d: 80ms">
+          <div>
+            <h3>Build from source</h3>
+            <p>Requires Rust stable toolchain, Node.js 20+, and pnpm. Compiles into a standalone native binary.</p>
+          </div>
+          <div class="source-cmd">
+            git clone https://github.com/bapenda-kalsel/table-pro &amp;&amp; cd table-pro &amp;&amp; pnpm install &amp;&amp; pnpm tauri build
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
 
 <footer>
-  <div class="wrap" style="display: contents;">
-    <span>MIT License &middot; Badan Pendapatan Daerah Provinsi Kalimantan Selatan</span>
-    <span>
-      <a href="https://github.com/bapenda-kalsel/table-pro">Source</a> &middot;
-      <a href="https://github.com/bapenda-kalsel/table-pro/issues">Issues</a> &middot;
+  <div class="wrap footer-inner">
+    <span>MIT License / Badan Pendapatan Daerah Provinsi Kalimantan Selatan</span>
+    <div class="footer-links">
+      <a href="https://github.com/bapenda-kalsel/table-pro">Source</a>
+      <a href="https://github.com/bapenda-kalsel/table-pro/issues">Issues</a>
       <a href="https://github.com/bapenda-kalsel/table-pro/releases">Releases</a>
-    </span>
+    </div>
   </div>
 </footer>
 
 <script>
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
     const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
-    }, { threshold: 0.15 });
+      entries.forEach((e) => {
+        if (e.isIntersecting) {
+          e.target.classList.add('in');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.12 });
     document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
   } else {
     document.querySelectorAll('.reveal').forEach((el) => el.classList.add('in'));

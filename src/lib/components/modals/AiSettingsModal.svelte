@@ -78,7 +78,7 @@
     <div class="w-[440px] bg-panel border border-edge rounded-xl shadow-2xl flex flex-col text-xs select-none">
       <div class="p-4 border-b border-edge flex items-center justify-between bg-subtle rounded-t-xl">
         <div class="flex items-center gap-2 font-semibold text-fg">
-          <Sparkles class="w-4 h-4 text-sky-400" />
+          <Sparkles class="w-4 h-4 text-accent" />
           {t('ai.settings_title')}
         </div>
         <button class="text-muted hover:text-fg" onclick={() => (workspace.isAiSettingsOpen = false)}>
@@ -88,13 +88,13 @@
 
       <div class="p-4 space-y-4">
         <!-- Provider -->
-        <div class="space-y-1">
-          <label class="text-[10px] text-muted uppercase font-semibold" for="ai-provider">{t('ai.provider')}</label>
+        <div class="space-y-1.5">
+          <label class="text-[10px] text-muted uppercase font-semibold block" for="ai-provider">{t('ai.provider')}</label>
           <select
             id="ai-provider"
             bind:value={provider}
             onchange={(e) => selectProvider((e.target as HTMLSelectElement).value)}
-            class="w-full bg-input border border-edge rounded px-2.5 py-1.5 text-fg focus:outline-none focus:border-sky-500"
+            class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg focus:outline-none focus:border-accent"
           >
             {#each PROVIDERS as p}
               <option value={p.id}>{p.label}</option>
@@ -103,47 +103,47 @@
         </div>
 
         <!-- Model -->
-        <div class="space-y-1">
-          <label class="text-[10px] text-muted uppercase font-semibold" for="ai-model">{t('ai.model')}</label>
+        <div class="space-y-1.5">
+          <label class="text-[10px] text-muted uppercase font-semibold block" for="ai-model">{t('ai.model')}</label>
           <input
             id="ai-model"
             type="text"
             bind:value={model}
             placeholder={providerMeta.defaultModel}
-            class="w-full bg-input border border-edge rounded px-2.5 py-1.5 text-fg placeholder-faint focus:outline-none focus:border-sky-500 font-mono"
+            class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg placeholder-faint focus:outline-none focus:border-accent font-mono"
           />
         </div>
 
         <!-- Base URL (OpenAI-compatible / self-hosted) -->
-        <div class="space-y-1">
-          <label class="text-[10px] text-muted uppercase font-semibold" for="ai-baseurl">{t('ai.base_url')}</label>
+        <div class="space-y-1.5">
+          <label class="text-[10px] text-muted uppercase font-semibold block" for="ai-baseurl">{t('ai.base_url')}</label>
           <input
             id="ai-baseurl"
             type="text"
             bind:value={baseUrl}
             placeholder={providerMeta.urlHint}
-            class="w-full bg-input border border-edge rounded px-2.5 py-1.5 text-fg placeholder-faint focus:outline-none focus:border-sky-500 font-mono"
+            class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg placeholder-faint focus:outline-none focus:border-accent font-mono"
           />
           <div class="text-[10px] text-faint">{t('ai.base_url_hint')}</div>
         </div>
 
-        <!-- API key — stored in OS keychain, never in files -->
-        <div class="space-y-1">
+        <!-- API key -->
+        <div class="space-y-1.5">
           <label class="text-[10px] text-muted uppercase font-semibold flex items-center gap-1" for="ai-key">
-            <KeyRound class="w-3 h-3" /> {t('ai.api_key')}
+            <KeyRound class="w-3 h-3 text-accent" /> {t('ai.api_key')}
           </label>
           <input
             id="ai-key"
             type="password"
             bind:value={apiKey}
             placeholder={current?.hasKey ? t('ai.key_stored') : t('ai.key_placeholder')}
-            class="w-full bg-input border border-edge rounded px-2.5 py-1.5 text-fg placeholder-faint focus:outline-none focus:border-sky-500 font-mono"
+            class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg placeholder-faint focus:outline-none focus:border-accent font-mono"
           />
           <div class="flex items-center justify-between">
             <span class="text-[10px] text-faint">{t('ai.key_hint')}</span>
             {#if current?.hasKey}
-              <label class="flex items-center gap-1 text-[10px] text-rose-400 cursor-pointer">
-                <input type="checkbox" bind:checked={clearKey} class="rounded" />
+              <label class="flex items-center gap-1 text-[10px] text-err cursor-pointer">
+                <input type="checkbox" bind:checked={clearKey} class="rounded accent-accent" />
                 {t('ai.clear_key')}
               </label>
             {/if}
@@ -151,19 +151,19 @@
         </div>
 
         {#if errorMsg}
-          <div class="text-rose-400 text-[11px] bg-rose-500/10 border border-rose-500/30 rounded px-2.5 py-1.5">{errorMsg}</div>
+          <div class="text-err text-[11px] bg-err-bg border border-err-edge rounded-md px-2.5 py-1.5">{errorMsg}</div>
         {/if}
       </div>
 
       <div class="p-3 border-t border-edge flex justify-end gap-2 bg-subtle rounded-b-xl">
         <button
-          class="px-3 py-1.5 rounded bg-elevated hover:bg-hover text-fg2 transition-colors"
+          class="px-3 py-1.5 rounded-md bg-elevated hover:bg-hover border border-edge text-fg2 transition-colors"
           onclick={() => (workspace.isAiSettingsOpen = false)}
         >
           {t('common.cancel')}
         </button>
         <button
-          class="px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-medium transition-colors disabled:opacity-50"
+          class="px-3.5 py-1.5 rounded-md bg-accent-strong hover:opacity-95 text-white font-medium transition-colors disabled:opacity-50"
           onclick={save}
           disabled={saving}
         >

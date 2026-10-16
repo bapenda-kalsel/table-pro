@@ -234,7 +234,7 @@
       <!-- Header -->
       <div class="h-12 border-b border-edge px-4 flex items-center justify-between bg-subtle">
         <div class="flex items-center gap-2 font-bold text-fg text-sm">
-          <Database class="w-4 h-4 text-sky-400" />
+          <Database class="w-4 h-4 text-accent" />
           <span>{t('conn.title')}</span>
         </div>
         <button
@@ -250,7 +250,7 @@
         <!-- Left Column: Profiles List -->
         <div class="w-56 border-r border-edge bg-subtle flex flex-col p-2 space-y-1">
           <button
-            class="flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 border border-sky-500/40 font-medium transition-colors mb-2"
+            class="flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-md bg-accent-soft hover:opacity-90 text-accent border border-accent-edge font-medium transition-colors mb-2"
             onclick={resetForm}
           >
             <Plus class="w-3.5 h-3.5" />
@@ -260,10 +260,10 @@
           <div class="flex-1 overflow-y-auto space-y-0.5">
             {#each workspace.connections as conn}
               <div
-                class={`flex items-center justify-between px-2.5 py-2 rounded cursor-pointer transition-colors group ${
+                class={`flex items-center justify-between px-2.5 py-2 rounded-md cursor-pointer transition-colors group ${
                   selectedProfileId === conn.id
-                    ? 'bg-elevated text-fg font-semibold border-l-2 border-sky-500'
-                    : 'hover:bg-subtle text-muted hover:text-fg'
+                    ? 'bg-elevated text-fg font-semibold border-l-2 border-accent'
+                    : 'hover:bg-elevated text-muted hover:text-fg'
                 }`}
                 onclick={() => selectProfile(conn)}
                 onkeydown={(e) => e.key === 'Enter' && selectProfile(conn)}
@@ -273,13 +273,13 @@
                 <div class="truncate">
                   <div class="truncate">{conn.name}</div>
                   <div class="text-[9px] uppercase tracking-wider text-faint font-mono">
-                    {conn.driver} • {conn.environment}
+                    {conn.driver} / {conn.environment}
                   </div>
                 </div>
 
                 <div class="flex items-center gap-0.5 shrink-0">
                   <button
-                    class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-hover text-muted hover:text-emerald-400 transition-opacity"
+                    class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-hover text-muted hover:text-ok transition-opacity"
                     onclick={(e) => {
                       e.stopPropagation();
                       handleConnectExisting(conn.id);
@@ -289,7 +289,7 @@
                     <Plug class="w-3 h-3" />
                   </button>
                   <button
-                    class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-hover text-muted hover:text-rose-400 transition-opacity"
+                    class="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-hover text-muted hover:text-err transition-opacity"
                     onclick={(e) => {
                       e.stopPropagation();
                       handleDelete(conn.id);
@@ -306,19 +306,19 @@
 
         <!-- Right Column: Profile Form -->
         <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-panel">
-          <div class="space-y-1">
-            <label for="conn-name" class="text-[10px] text-muted uppercase font-semibold">{t('conn.name')}</label>
+          <div class="space-y-1.5">
+            <label for="conn-name" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.name')}</label>
             <input
               type="text"
               id="conn-name" bind:value={formName}
               placeholder={t('conn.name_ph')}
-              class="w-full bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none focus:border-sky-500"
+              class="w-full bg-input border border-edge rounded-md px-3 py-1.5 text-fg focus:outline-none focus:border-accent"
             />
           </div>
 
           <div class="grid grid-cols-2 gap-3">
-            <div class="space-y-1">
-              <label for="conn-driver" class="text-[10px] text-muted uppercase font-semibold">{t('conn.driver')}</label>
+            <div class="space-y-1.5">
+              <label for="conn-driver" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.driver')}</label>
               <select
                 id="conn-driver" bind:value={formDriver}
                 onchange={() => {
@@ -326,7 +326,7 @@
                   else if (formDriver === 'postgres') formPort = 5432;
                   if (formDriver !== 'sqlite' && !formDatabase) formDatabase = 'postgres';
                 }}
-                class="w-full bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none focus:border-sky-500"
+                class="w-full bg-input border border-edge rounded-md px-3 py-1.5 text-fg focus:outline-none focus:border-accent"
               >
                 <option value="sqlite">{t('conn.driver_sqlite')}</option>
                 <option value="mysql">MySQL / MariaDB</option>
@@ -334,11 +334,11 @@
               </select>
             </div>
 
-            <div class="space-y-1">
-              <label for="conn-env" class="text-[10px] text-muted uppercase font-semibold">{t('conn.env')}</label>
+            <div class="space-y-1.5">
+              <label for="conn-env" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.env')}</label>
               <select
                 id="conn-env" bind:value={formEnv}
-                class="w-full bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none focus:border-sky-500"
+                class="w-full bg-input border border-edge rounded-md px-3 py-1.5 text-fg focus:outline-none focus:border-accent"
               >
                 <option value="local">{t('conn.env_local')}</option>
                 <option value="staging">{t('conn.env_staging')}</option>
@@ -348,12 +348,12 @@
           </div>
 
           {#if formDriver === 'sqlite'}
-            <div class="space-y-1">
+            <div class="space-y-1.5">
               <div class="flex items-center justify-between">
                 <label for="conn-path" class="text-[10px] text-muted uppercase font-semibold">{t('conn.path')}</label>
                 <button
                   type="button"
-                  class="text-[10px] text-sky-400 hover:underline"
+                  class="text-[10px] text-accent hover:underline"
                   onclick={() => (formFilePath = ':memory:')}
                 >
                   {t('conn.memory')}
@@ -364,11 +364,11 @@
                   type="text"
                   id="conn-path" bind:value={formFilePath}
                   placeholder={t('conn.path_ph')}
-                  class="flex-1 bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none focus:border-sky-500 font-mono text-[11px]"
+                  class="flex-1 bg-input border border-edge rounded-md px-3 py-1.5 text-fg focus:outline-none focus:border-accent font-mono text-[11px]"
                 />
                 <button
                   type="button"
-                  class="flex items-center gap-1 px-3 py-1.5 rounded bg-elevated hover:bg-hover text-fg transition-colors"
+                  class="flex items-center gap-1 px-3 py-1.5 rounded-md bg-elevated hover:bg-hover border border-edge text-fg transition-colors"
                   onclick={pickDbFile}
                   title={t('conn.browse_hint')}
                 >
@@ -382,61 +382,61 @@
           {:else}
             <!-- Host, Port, DB, User -->
             <div class="grid grid-cols-3 gap-2">
-              <div class="col-span-2 space-y-1">
-                <label for="conn-host" class="text-[10px] text-muted uppercase font-semibold">{t('conn.host')}</label>
+              <div class="col-span-2 space-y-1.5">
+                <label for="conn-host" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.host')}</label>
                 <input
                   type="text"
                   id="conn-host" bind:value={formHost}
-                  class="w-full bg-app border border-edge rounded px-2.5 py-1.5 text-fg"
+                  class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg focus:outline-none focus:border-accent"
                 />
               </div>
-              <div class="space-y-1">
-                <label for="conn-port" class="text-[10px] text-muted uppercase font-semibold">{t('conn.port')}</label>
+              <div class="space-y-1.5">
+                <label for="conn-port" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.port')}</label>
                 <input
                   type="number"
                   id="conn-port" bind:value={formPort}
-                  class="w-full bg-app border border-edge rounded px-2.5 py-1.5 text-fg"
+                  class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg focus:outline-none focus:border-accent font-mono"
                 />
               </div>
             </div>
 
             <div class="grid grid-cols-2 gap-2">
-              <div class="space-y-1">
-                <label for="conn-db" class="text-[10px] text-muted uppercase font-semibold">{t('conn.db')}</label>
+              <div class="space-y-1.5">
+                <label for="conn-db" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.db')}</label>
                 <input
                   type="text"
                   id="conn-db" bind:value={formDatabase}
-                  class="w-full bg-app border border-edge rounded px-2.5 py-1.5 text-fg"
+                  class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg focus:outline-none focus:border-accent"
                 />
               </div>
-              <div class="space-y-1">
-                <label for="conn-user" class="text-[10px] text-muted uppercase font-semibold">{t('conn.user')}</label>
+              <div class="space-y-1.5">
+                <label for="conn-user" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.user')}</label>
                 <input
                   type="text"
                   id="conn-user" bind:value={formUsername}
-                  class="w-full bg-app border border-edge rounded px-2.5 py-1.5 text-fg"
+                  class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg focus:outline-none focus:border-accent"
                 />
               </div>
             </div>
 
-            <div class="space-y-1">
+            <div class="space-y-1.5">
               <div class="flex items-center gap-1 text-[10px] text-muted uppercase font-semibold">
-                <Lock class="w-3 h-3 text-sky-400" />
+                <Lock class="w-3 h-3 text-accent" />
                 <span>{t('conn.password')}</span>
               </div>
               <input
                 type="password"
                 bind:value={formPassword}
                 placeholder={t('conn.password_ph')}
-                class="w-full bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none"
+                class="w-full bg-input border border-edge rounded-md px-3 py-1.5 text-fg focus:outline-none focus:border-accent"
               />
             </div>
 
-            <div class="space-y-1">
-              <label for="conn-tls" class="text-[10px] text-muted uppercase font-semibold">{t('conn.tls_mode')}</label>
+            <div class="space-y-1.5">
+              <label for="conn-tls" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.tls_mode')}</label>
               <select
                 id="conn-tls" bind:value={formSslMode}
-                class="w-full bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none focus:border-sky-500"
+                class="w-full bg-input border border-edge rounded-md px-3 py-1.5 text-fg focus:outline-none focus:border-accent"
               >
                 <option value="verify_full">{t('conn.tls_verify_full')}</option>
                 <option value="verify_ca">{t('conn.tls_verify_ca')}</option>
@@ -447,18 +447,18 @@
             </div>
 
             {#if formSslMode === 'verify_ca' || formSslMode === 'verify_full'}
-              <div class="space-y-1">
-                <label for="conn-ca" class="text-[10px] text-muted uppercase font-semibold">{t('conn.tls_ca')}</label>
+              <div class="space-y-1.5">
+                <label for="conn-ca" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.tls_ca')}</label>
                 <div class="flex gap-2">
                   <input
                     type="text"
                     id="conn-ca" bind:value={formSslCa}
                     placeholder={t('conn.tls_ca_ph')}
-                    class="flex-1 bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none font-mono text-[11px]"
+                    class="flex-1 bg-input border border-edge rounded-md px-3 py-1.5 text-fg focus:outline-none focus:border-accent font-mono text-[11px]"
                   />
                   <button
                     type="button"
-                    class="flex items-center gap-1 px-3 py-1.5 rounded bg-elevated hover:bg-hover text-fg transition-colors"
+                    class="flex items-center gap-1 px-3 py-1.5 rounded-md bg-elevated hover:bg-hover border border-edge text-fg transition-colors"
                     onclick={pickCaFile}
                     title={t('conn.tls_browse_hint')}
                   >
@@ -472,50 +472,50 @@
             <!-- SSH Tunnel -->
             <div class="space-y-3 rounded-lg border border-edge bg-subtle p-3">
               <label class="flex items-center gap-2 text-[10px] text-muted uppercase font-semibold cursor-pointer">
-                <input type="checkbox" bind:checked={sshEnabled} class="rounded" />
-                <Network class="w-3 h-3 text-violet-400" />
+                <input type="checkbox" bind:checked={sshEnabled} class="rounded accent-accent" />
+                <Network class="w-3 h-3 text-accent" />
                 {t('conn.ssh_toggle')}
               </label>
 
               {#if sshEnabled}
                 <div class="grid grid-cols-3 gap-2">
-                  <div class="col-span-2 space-y-1">
-                    <label for="ssh-host" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_host')}</label>
+                  <div class="col-span-2 space-y-1.5">
+                    <label for="ssh-host" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.ssh_host')}</label>
                     <input
                       id="ssh-host"
                       type="text"
                       bind:value={sshHost}
                       placeholder="bastion.example.com"
-                      class="w-full bg-app border border-edge rounded px-2.5 py-1.5 text-fg"
+                      class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg focus:outline-none focus:border-accent"
                     />
                   </div>
-                  <div class="space-y-1">
-                    <label for="ssh-port" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_port')}</label>
+                  <div class="space-y-1.5">
+                    <label for="ssh-port" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.ssh_port')}</label>
                     <input
                       id="ssh-port"
                       type="number"
                       bind:value={sshPort}
-                      class="w-full bg-app border border-edge rounded px-2.5 py-1.5 text-fg"
+                      class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg focus:outline-none focus:border-accent font-mono"
                     />
                   </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
-                  <div class="space-y-1">
-                    <label for="ssh-user" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_user')}</label>
+                  <div class="space-y-1.5">
+                    <label for="ssh-user" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.ssh_user')}</label>
                     <input
                       id="ssh-user"
                       type="text"
                       bind:value={sshUsername}
-                      class="w-full bg-app border border-edge rounded px-2.5 py-1.5 text-fg"
+                      class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg focus:outline-none focus:border-accent"
                     />
                   </div>
-                  <div class="space-y-1">
-                    <label for="ssh-auth" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_auth')}</label>
+                  <div class="space-y-1.5">
+                    <label for="ssh-auth" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.ssh_auth')}</label>
                     <select
                       id="ssh-auth"
                       bind:value={sshAuthMethod}
-                      class="w-full bg-app border border-edge rounded px-2.5 py-1.5 text-fg focus:outline-none focus:border-sky-500"
+                      class="w-full bg-input border border-edge rounded-md px-2.5 py-1.5 text-fg focus:outline-none focus:border-accent"
                     >
                       <option value="password">{t('conn.ssh_auth_pw')}</option>
                       <option value="key_file">{t('conn.ssh_auth_key')}</option>
@@ -524,44 +524,44 @@
                 </div>
 
                 {#if sshAuthMethod === 'password'}
-                  <div class="space-y-1">
-                    <label for="ssh-pass" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_password')}</label>
+                  <div class="space-y-1.5">
+                    <label for="ssh-pass" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.ssh_password')}</label>
                     <input
                       id="ssh-pass"
                       type="password"
                       bind:value={sshPassword}
                       placeholder={t('conn.ssh_password_ph')}
-                      class="w-full bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none"
+                      class="w-full bg-input border border-edge rounded-md px-3 py-1.5 text-fg focus:outline-none focus:border-accent"
                     />
                   </div>
                 {:else}
-                  <div class="space-y-1">
-                    <label for="ssh-key" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_key')}</label>
+                  <div class="space-y-1.5">
+                    <label for="ssh-key" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.ssh_key')}</label>
                     <div class="flex gap-2">
                       <input
                         id="ssh-key"
                         type="text"
                         bind:value={sshKeyPath}
                         placeholder="~/.ssh/id_ed25519"
-                        class="flex-1 bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none font-mono text-[11px]"
+                        class="flex-1 bg-input border border-edge rounded-md px-3 py-1.5 text-fg focus:outline-none focus:border-accent font-mono text-[11px]"
                       />
                       <button
                         type="button"
-                        class="flex items-center gap-1 px-3 py-1.5 rounded bg-elevated hover:bg-hover text-fg transition-colors"
+                        class="flex items-center gap-1 px-3 py-1.5 rounded-md bg-elevated hover:bg-hover border border-edge text-fg transition-colors"
                         onclick={pickSshKeyFile}
                       >
                         <FolderOpen class="w-3.5 h-3.5" /><span>{t('common.browse')}</span>
                       </button>
                     </div>
                   </div>
-                  <div class="space-y-1">
-                    <label for="ssh-pp" class="text-[10px] text-muted uppercase font-semibold">{t('conn.ssh_passphrase')}</label>
+                  <div class="space-y-1.5">
+                    <label for="ssh-pp" class="text-[10px] text-muted uppercase font-semibold block">{t('conn.ssh_passphrase')}</label>
                     <input
                       id="ssh-pp"
                       type="password"
                       bind:value={sshPassphrase}
                       placeholder={t('conn.ssh_passphrase_ph')}
-                      class="w-full bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none"
+                      class="w-full bg-input border border-edge rounded-md px-3 py-1.5 text-fg focus:outline-none focus:border-accent"
                     />
                   </div>
                 {/if}
@@ -576,16 +576,16 @@
           <!-- Test Result Feedback -->
           {#if testResult}
             <div
-              class={`p-2.5 rounded border text-[11px] flex items-center gap-2 ${
+              class={`p-2.5 rounded-md border text-[11px] flex items-center gap-2 ${
                 testResult.success
-                  ? 'bg-emerald-950/30 border-emerald-900/40 text-emerald-300'
-                  : 'bg-rose-950/30 border-rose-900/40 text-rose-300'
+                  ? 'bg-ok-bg border-ok-edge text-ok'
+                  : 'bg-err-bg border-err-edge text-err'
               }`}
             >
               {#if testResult.success}
-                <CheckCircle2 class="w-4 h-4 text-emerald-400 shrink-0" />
+                <CheckCircle2 class="w-4 h-4 text-ok shrink-0" />
               {:else}
-                <AlertCircle class="w-4 h-4 text-rose-400 shrink-0" />
+                <AlertCircle class="w-4 h-4 text-err shrink-0" />
               {/if}
               <span>{testResult.message}</span>
             </div>
@@ -596,7 +596,7 @@
       <!-- Footer Buttons -->
       <div class="h-12 border-t border-edge px-4 flex items-center justify-between bg-subtle">
         <button
-          class="px-3 py-1.5 rounded bg-elevated hover:bg-hover text-fg2 font-medium transition-colors disabled:opacity-50"
+          class="px-3 py-1.5 rounded-md bg-elevated hover:bg-hover border border-edge text-fg2 font-medium transition-colors disabled:opacity-50"
           onclick={handleTest}
           disabled={isTesting}
         >
@@ -605,13 +605,13 @@
 
         <div class="flex items-center gap-2">
           <button
-            class="px-3 py-1.5 rounded bg-elevated hover:bg-hover text-fg2 transition-colors"
+            class="px-3 py-1.5 rounded-md bg-elevated hover:bg-hover border border-edge text-fg2 transition-colors"
             onclick={handleSave}
           >
             {t('conn.save')}
           </button>
           <button
-            class="px-4 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-semibold shadow-md transition-colors"
+            class="px-4 py-1.5 rounded-md bg-accent-strong hover:opacity-95 text-white font-semibold transition-colors"
             onclick={handleConnectAndClose}
           >
             {t('conn.save_connect')}

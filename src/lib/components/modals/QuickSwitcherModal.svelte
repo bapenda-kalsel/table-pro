@@ -31,10 +31,10 @@
 
 {#if workspace.isQuickSwitcherOpen}
   <div class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-start justify-center pt-24 z-50 p-4">
-    <div class="w-[500px] bg-panel border border-edge rounded-xl shadow-2xl flex flex-col text-xs overflow-hidden select-none animate-in fade-in duration-100">
+    <div class="w-[500px] bg-panel border border-edge rounded-xl shadow-2xl flex flex-col text-xs overflow-hidden select-none">
       <!-- Search Bar -->
       <div class="p-3 border-b border-edge flex items-center gap-2 bg-subtle">
-        <Search class="w-4 h-4 text-sky-400" />
+        <Search class="w-4 h-4 text-accent" />
         <input
           type="text"
           placeholder={t('qs.placeholder')}
@@ -42,7 +42,7 @@
           use:focusOnMount
           class="flex-1 bg-transparent text-fg placeholder-faint focus:outline-none text-sm"
         />
-        <kbd class="px-1.5 py-0.5 rounded bg-elevated text-[10px] text-muted font-mono">ESC</kbd>
+        <kbd class="px-1.5 py-0.5 rounded bg-elevated border border-edge text-[10px] text-muted font-mono">ESC</kbd>
       </div>
 
       <!-- Quick Actions List -->
@@ -58,7 +58,7 @@
           tabindex="0"
           role="button"
         >
-          <div class="p-1 rounded bg-sky-500/20 text-sky-400">
+          <div class="p-1.5 rounded-md bg-accent-soft border border-accent-edge text-accent">
             <Terminal class="w-3.5 h-3.5" />
           </div>
           <div>
@@ -80,7 +80,7 @@
             role="button"
           >
             <div class="flex items-center gap-2">
-              <Table class="w-3.5 h-3.5 text-sky-400" />
+              <Table class="w-3.5 h-3.5 text-accent" />
               <span class="font-medium">{tbl.name}</span>
             </div>
             {#if tbl.row_count_estimate !== undefined}

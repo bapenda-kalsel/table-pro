@@ -23,7 +23,7 @@
     <!-- Header -->
     <div class="h-8 border-b border-edge bg-panel flex items-center justify-between px-3 text-muted">
       <div class="flex items-center gap-2 font-medium">
-        <Terminal class="w-3.5 h-3.5 text-sky-400" />
+        <Terminal class="w-3.5 h-3.5 text-accent" />
         <span class="text-fg">{t('console.title')}</span>
         <span class="text-[10px] text-faint font-mono">({t('console.events', { count: workspace.sqlLogs.length })})</span>
       </div>
@@ -49,25 +49,25 @@
     <!-- Logs List -->
     <div class="flex-1 overflow-y-auto p-2 space-y-1 font-mono text-[11px]">
       {#if workspace.sqlLogs.length === 0}
-        <div class="text-faint italic p-2">{t('console.empty')}</div>
+        <div class="text-faint p-2">{t('console.empty')}</div>
       {:else}
         {#each workspace.sqlLogs.slice().reverse() as log (log.id)}
           <div
             class={`flex items-start justify-between p-1.5 rounded transition-colors group ${
               log.is_error
-                ? 'bg-rose-950/30 text-rose-300 border-l-2 border-rose-500'
+                ? 'bg-err-bg text-err border-l-2 border-err'
                 : 'hover:bg-hover text-fg2'
             }`}
           >
             <div class="flex items-start gap-2.5 overflow-hidden">
               <span class="text-faint shrink-0 text-[10px]">{log.timestamp}</span>
-              <div class="flex items-center gap-1 text-sky-400 shrink-0 text-[10px]">
+              <div class="flex items-center gap-1 text-accent shrink-0 text-[10px]">
                 <Clock class="w-2.5 h-2.5" />
                 <span>{log.duration_ms.toFixed(1)}ms</span>
               </div>
               <span class="truncate select-text font-mono text-fg">{log.query}</span>
               {#if log.error_message}
-                <span class="text-rose-400 text-[10px] font-sans truncate">({log.error_message})</span>
+                <span class="text-err text-[10px] font-sans truncate">({log.error_message})</span>
               {/if}
             </div>
 
@@ -77,7 +77,7 @@
               title={t('console.copy_hint')}
             >
               {#if copiedId === log.id}
-                <Check class="w-3 h-3 text-emerald-400" />
+                <Check class="w-3 h-3 text-ok" />
               {:else}
                 <Copy class="w-3 h-3" />
               {/if}

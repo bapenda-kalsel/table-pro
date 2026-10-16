@@ -35,9 +35,9 @@
   <div class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
     <div class="w-[600px] max-h-[80vh] bg-panel border border-edge rounded-xl shadow-2xl flex flex-col text-xs overflow-hidden select-none">
       <!-- Modal Header -->
-      <div class="p-4 border-b border-edge flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="p-1.5 rounded bg-amber-500/20 text-amber-400">
+      <div class="p-4 border-b border-edge flex items-center justify-between bg-subtle">
+        <div class="flex items-center gap-2.5">
+          <div class="p-1.5 rounded-md bg-accent-soft border border-accent-edge text-accent">
             <Search class="w-4 h-4" />
           </div>
           <div>
@@ -54,17 +54,17 @@
       </div>
 
       <!-- Search Input -->
-      <div class="p-4 border-b border-edge flex items-center gap-2 bg-subtle">
+      <div class="p-4 border-b border-edge flex items-center gap-2 bg-panel">
         <input
           type="text"
           placeholder={t('gs.placeholder')}
           bind:value={keyword}
           onkeydown={(e) => e.key === 'Enter' && performSearch()}
           use:focusOnMount
-          class="flex-1 bg-elevated border border-edge rounded px-3 py-2 text-fg placeholder-faint focus:outline-none focus:border-amber-500 transition-colors font-mono"
+          class="flex-1 bg-input border border-edge rounded-md px-3 py-2 text-fg placeholder-faint focus:outline-none focus:border-accent transition-colors font-mono"
         />
         <button
-          class="px-4 py-2 rounded bg-amber-600 hover:bg-amber-500 text-white font-semibold transition-colors disabled:opacity-50"
+          class="px-4 py-2 rounded-md bg-accent-strong hover:opacity-95 text-white font-semibold transition-colors disabled:opacity-50"
           onclick={performSearch}
           disabled={isSearching}
         >
@@ -75,27 +75,36 @@
       <!-- Results Area -->
       <div class="flex-1 overflow-y-auto p-4 space-y-3">
         {#if isSearching}
-          <div class="flex items-center justify-center py-8 text-muted gap-2">
-            <div class="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-            <span>{t('gs.scanning')}</span>
+          <!-- Layout-matched skeletal loader -->
+          <div class="space-y-2.5 animate-pulse" role="status" aria-label={t('gs.scanning')}>
+            {#each Array(3) as _}
+              <div class="p-3 rounded-lg bg-subtle border border-edge space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="h-3 w-48 rounded bg-elevated"></div>
+                  <div class="h-4 w-20 rounded bg-elevated"></div>
+                </div>
+                <div class="h-5 w-full rounded bg-elevated"></div>
+              </div>
+            {/each}
           </div>
         {:else if hasSearched && searchResults.length === 0}
-          <div class="py-8 text-center text-faint font-mono">
-            {t('gs.no_match', { keyword })}
+          <div class="py-10 flex flex-col items-center justify-center text-center gap-2 text-faint">
+            <Search class="w-5 h-5 text-muted" />
+            <div class="font-mono text-xs text-muted">{t('gs.no_match', { keyword })}</div>
           </div>
         {:else}
           {#each searchResults as res}
             <div class="p-3 rounded-lg bg-subtle border border-edge space-y-2">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2 font-semibold text-fg">
-                  <Table class="w-3.5 h-3.5 text-sky-400" />
+                  <Table class="w-3.5 h-3.5 text-accent" />
                   <span>{res.table_name}</span>
                   <span class="text-faint">→</span>
-                  <span class="text-amber-400 font-mono">{res.column_name}</span>
+                  <span class="text-accent font-mono">{res.column_name}</span>
                   <span class="text-[10px] text-faint font-mono">({t('gs.matches', { count: res.match_count })})</span>
                 </div>
                 <button
-                  class="flex items-center gap-1 px-2 py-0.5 rounded bg-elevated hover:bg-hover text-sky-400 text-[10px] font-medium"
+                  class="flex items-center gap-1 px-2.5 py-1 rounded-md bg-elevated hover:bg-hover border border-edge text-accent text-[10px] font-medium"
                   onclick={() => jumpToTable(res.table_name)}
                 >
                   <span>{t('gs.open_table')}</span>

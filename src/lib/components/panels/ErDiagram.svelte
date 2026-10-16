@@ -223,9 +223,9 @@
 
 {#snippet tableIcon(type?: string)}
   {#if type === 'view'}
-    <Eye class="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+    <Eye class="w-3.5 h-3.5 text-muted shrink-0" />
   {:else}
-    <Table class="w-3.5 h-3.5 text-sky-400 shrink-0" />
+    <Table class="w-3.5 h-3.5 text-accent shrink-0" />
   {/if}
 {/snippet}
 
@@ -235,7 +235,7 @@
   <!-- Toolbar -->
   <div class="h-10 border-b border-edge bg-panel flex items-center justify-between px-4">
     <div class="flex items-center gap-2 font-semibold text-fg">
-      <Network class="w-4 h-4 text-violet-400" />
+      <Network class="w-4 h-4 text-accent" />
       <span>{t('erd.title')}</span>
       <span class="text-[10px] text-faint font-mono">
         {t('erd.summary', { tables: Object.keys(schemas).length, rels: edges.length })}
@@ -243,9 +243,9 @@
     </div>
     <div class="flex items-center gap-1">
       <button
-        class={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
+        class={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-colors ${
           linkMode
-            ? 'bg-violet-500/20 border border-violet-500/50 text-violet-300'
+            ? 'bg-accent-soft border border-accent-edge text-accent'
             : 'hover:bg-hover text-muted border border-transparent'
         }`}
         onclick={toggleLinkMode}
@@ -273,13 +273,13 @@
 
   <!-- Link-mode banner -->
   {#if linkMode}
-    <div class="h-7 border-b border-violet-500/30 bg-violet-500/10 flex items-center gap-2 px-3 text-[10px] text-violet-300">
+    <div class="h-7 border-b border-accent-edge bg-accent-soft flex items-center gap-2 px-3 text-[10px] text-accent">
       <Link2 class="w-3 h-3" />
       <span>{linkSource ? t('erd.link_pick_second') : t('erd.link_pick_first')}</span>
       {#if linkSource}
-        <span class="font-mono text-violet-200">{linkSource.table}.{linkSource.column}</span>
+        <span class="font-mono font-semibold text-fg">{linkSource.table}.{linkSource.column}</span>
       {/if}
-      <button class="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-violet-500/20" onclick={cancelLink}>
+      <button class="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-hover text-fg2" onclick={cancelLink}>
         <X class="w-3 h-3" /> {t('common.cancel')}
       </button>
     </div>
@@ -287,7 +287,7 @@
 
   <!-- FK created toast -->
   {#if fkToast}
-    <div class="border-b border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-[10px] text-emerald-300 flex items-center gap-2">
+    <div class="border-b border-ok-edge bg-ok-bg px-3 py-1.5 text-[10px] text-ok flex items-center gap-2">
       <Check class="w-3 h-3" /> <span class="truncate font-mono">{fkToast}</span>
     </div>
   {/if}
@@ -295,12 +295,32 @@
   <!-- Canvas -->
   <div class="flex-1 overflow-auto relative" style="background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1px); background-size: 24px 24px;">
     {#if loading}
-      <div class="flex items-center justify-center h-48 text-faint gap-2">
-        <div class="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-        <span>{t('erd.loading')}</span>
+      <!-- Layout-matched skeletal canvas nodes -->
+      <div class="p-10 grid grid-cols-3 gap-12 max-w-4xl animate-pulse" role="status" aria-label={t('erd.loading')}>
+        {#each Array(3) as _}
+          <div class="rounded-lg border border-strong bg-panel shadow-xl overflow-hidden">
+            <div class="h-[30px] px-2.5 flex items-center gap-2 bg-elevated border-b border-strong">
+              <div class="w-3.5 h-3.5 rounded bg-subtle"></div>
+              <div class="h-2.5 w-24 rounded bg-subtle"></div>
+            </div>
+            <div class="p-2.5 space-y-2">
+              {#each Array(5) as _}
+                <div class="flex justify-between gap-2">
+                  <div class="h-2 w-20 rounded bg-elevated"></div>
+                  <div class="h-2 w-10 rounded bg-subtle"></div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/each}
       </div>
     {:else if Object.keys(schemas).length === 0}
-      <div class="p-8 text-center text-faint">{t('erd.empty')}</div>
+      <div class="p-12 flex flex-col items-center justify-center text-center gap-2.5 text-faint">
+        <div class="w-10 h-10 rounded-xl bg-panel border border-edge flex items-center justify-center text-muted">
+          <Network class="w-5 h-5" />
+        </div>
+        <div class="text-xs text-muted">{t('erd.empty')}</div>
+      </div>
     {:else}
       <div
         class="relative origin-top-left"
@@ -332,7 +352,7 @@
           {@const pos = workspace.erdPositions[name] ?? { x: 40, y: 40 }}
           <div
             class={`absolute rounded-lg border bg-panel shadow-xl overflow-hidden ${
-              drag?.table === name ? 'border-violet-500 shadow-violet-500/20 z-20' : 'border-strong z-10'
+              drag?.table === name ? 'border-accent z-20' : 'border-strong z-10'
             }`}
             style={`left: ${pos.x}px; top: ${pos.y}px; width: ${NODE_W}px;`}
           >
@@ -352,19 +372,19 @@
               {#each s.columns as c}
                 <div
                   class={`h-[19px] px-2.5 flex items-center gap-1.5 border-b border-edge/40 text-fg2 truncate ${
-                    linkMode ? 'cursor-crosshair hover:bg-violet-500/15' : ''
-                  } ${linkSource?.table === name && linkSource?.column === c.name ? 'bg-violet-500/25 text-violet-100' : ''}`}
+                    linkMode ? 'cursor-crosshair hover:bg-accent-soft' : ''
+                  } ${linkSource?.table === name && linkSource?.column === c.name ? 'bg-accent-soft text-accent font-semibold' : ''}`}
                   role={linkMode ? 'button' : undefined}
                   onclick={() => onColumnClick(name, c.name)}
                 >
                   {#if c.is_primary_key}
-                    <KeyRound class="w-3 h-3 text-amber-400 shrink-0" />
+                    <KeyRound class="w-3 h-3 text-warn shrink-0" />
                   {:else if s.foreign_keys.some((f) => f.from_column === c.name)}
-                    <Link class="w-3 h-3 text-violet-400 shrink-0" />
+                    <Link class="w-3 h-3 text-accent shrink-0" />
                   {:else}
                     <span class="w-3 shrink-0"></span>
                   {/if}
-                  <span class={`truncate ${c.is_primary_key ? 'text-amber-200 font-semibold' : ''}`}>{c.name}</span>
+                  <span class={`truncate ${c.is_primary_key ? 'text-warn font-semibold' : ''}`}>{c.name}</span>
                   <span class="ml-auto text-faint text-[9px] shrink-0">{c.data_type || 'ANY'}</span>
                 </div>
               {/each}
@@ -377,8 +397,8 @@
 
   <!-- Legend -->
   <div class="h-7 border-t border-edge bg-subtle flex items-center gap-4 px-3 text-[10px] text-faint">
-    <span class="flex items-center gap-1"><KeyRound class="w-3 h-3 text-amber-400" /> {t('erd.legend_pk')}</span>
-    <span class="flex items-center gap-1"><Link class="w-3 h-3 text-violet-400" /> {t('erd.legend_fk')}</span>
+    <span class="flex items-center gap-1"><KeyRound class="w-3 h-3 text-warn" /> {t('erd.legend_pk')}</span>
+    <span class="flex items-center gap-1"><Link class="w-3 h-3 text-accent" /> {t('erd.legend_fk')}</span>
     <span class="flex items-center gap-1"><span class="inline-block w-4 h-px bg-faint"></span> {t('erd.legend_rel')}</span>
     <span class="ml-auto">{t('erd.legend_hint')}</span>
   </div>
@@ -389,7 +409,7 @@
       <div class="bg-panel border border-strong rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
         <div class="px-4 py-3 border-b border-edge bg-elevated flex items-center justify-between">
           <div class="flex items-center gap-2 text-fg font-semibold text-sm">
-            <Link2 class="w-4 h-4 text-violet-400" />
+            <Link2 class="w-4 h-4 text-accent" />
             <span>{t('fk.title')}</span>
           </div>
           <button class="p-1 rounded hover:bg-hover text-faint" onclick={closeFkModal}>
@@ -399,9 +419,9 @@
 
         <div class="p-4 space-y-3 text-[11px]">
           <div class="flex items-center gap-2 font-mono text-[11px] bg-app border border-edge rounded px-3 py-2">
-            <span class="text-violet-300">{linkSource.table}.{linkSource.column}</span>
+            <span class="text-accent font-semibold">{linkSource.table}.{linkSource.column}</span>
             <span class="text-faint">→</span>
-            <span class="text-amber-300">{fkTarget.table}.{fkTarget.column}</span>
+            <span class="text-warn font-semibold">{fkTarget.table}.{fkTarget.column}</span>
           </div>
 
           <label class="space-y-1 block">
@@ -409,7 +429,7 @@
             <input
               type="text"
               bind:value={fkName}
-              class="w-full bg-app border border-strong rounded px-2.5 py-1.5 text-fg focus:border-violet-500 outline-none font-mono text-[11px]"
+              class="w-full bg-input border border-strong rounded-md px-2.5 py-1.5 text-fg focus:border-accent outline-none font-mono text-[11px]"
             />
           </label>
 
@@ -418,7 +438,7 @@
               <span class="text-[10px] text-muted uppercase font-semibold">{t('fk.on_delete')}</span>
               <select
                 bind:value={fkOnDelete}
-                class="w-full bg-app border border-strong rounded px-2.5 py-1.5 text-fg focus:border-violet-500 outline-none"
+                class="w-full bg-input border border-strong rounded-md px-2.5 py-1.5 text-fg focus:border-accent outline-none"
               >
                 {#each FK_ACTIONS as a}
                   <option value={a}>{a}</option>
@@ -429,7 +449,7 @@
               <span class="text-[10px] text-muted uppercase font-semibold">{t('fk.on_update')}</span>
               <select
                 bind:value={fkOnUpdate}
-                class="w-full bg-app border border-strong rounded px-2.5 py-1.5 text-fg focus:border-violet-500 outline-none"
+                class="w-full bg-input border border-strong rounded-md px-2.5 py-1.5 text-fg focus:border-accent outline-none"
               >
                 {#each FK_ACTIONS as a}
                   <option value={a}>{a}</option>
@@ -444,25 +464,25 @@
           </div>
 
           {#if workspace.activeConnection?.driver === 'sqlite'}
-            <div class="flex items-start gap-2 text-[10px] text-amber-300/90 bg-amber-500/10 border border-amber-500/30 rounded px-2.5 py-2">
+            <div class="flex items-start gap-2 text-[10px] text-warn bg-warn-bg border border-warn-edge rounded px-2.5 py-2">
               <AlertTriangle class="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{t('fk.sqlite_note')}</span>
             </div>
           {/if}
 
           {#if fkError}
-            <div class="p-2.5 bg-rose-500/10 border border-rose-500/50 rounded text-rose-400 font-mono text-[10px] break-all">
+            <div class="p-2.5 bg-err-bg border border-err-edge rounded text-err font-mono text-[10px] break-all">
               {fkError}
             </div>
           {/if}
         </div>
 
         <div class="px-4 py-3 border-t border-edge bg-subtle flex justify-end gap-2">
-          <button class="px-3 py-1.5 rounded hover:bg-hover text-muted hover:text-fg" onclick={closeFkModal}>
+          <button class="px-3 py-1.5 rounded-md hover:bg-hover text-muted hover:text-fg" onclick={closeFkModal}>
             {t('common.cancel')}
           </button>
           <button
-            class="px-4 py-1.5 rounded bg-violet-600 hover:bg-violet-500 text-white font-semibold disabled:opacity-50"
+            class="px-4 py-1.5 rounded-md bg-accent-strong hover:opacity-95 text-white font-semibold disabled:opacity-50"
             onclick={createFk}
             disabled={fkBusy}
           >

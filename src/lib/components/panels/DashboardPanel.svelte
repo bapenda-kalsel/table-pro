@@ -54,14 +54,14 @@
   <!-- Header -->
   <div class="h-10 border-b border-edge bg-panel flex items-center justify-between px-4">
     <div class="flex items-center gap-2 font-semibold text-fg">
-      <Gauge class="w-4 h-4 text-sky-400" />
+      <Gauge class="w-4 h-4 text-accent" />
       <span>{t('dash.title')}</span>
       {#if stats}
         <span class="text-[10px] text-faint font-mono">{stats.version}</span>
       {/if}
     </div>
     <button
-      class="flex items-center gap-1 px-2.5 py-1 rounded bg-elevated hover:bg-hover text-fg transition-colors"
+      class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-elevated hover:bg-hover border border-edge text-fg transition-colors"
       onclick={load}
     >
       <RefreshCw class="w-3.5 h-3.5" /><span>{t('common.refresh')}</span>
@@ -70,12 +70,39 @@
 
   <div class="flex-1 overflow-auto p-4 space-y-4">
     {#if loading}
-      <div class="flex items-center justify-center h-40 text-faint gap-2">
-        <div class="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-        <span>{t('dash.loading')}</span>
+      <!-- Layout-matched skeletal loader -->
+      <div class="space-y-4 animate-pulse" role="status" aria-label={t('dash.loading')}>
+        <div class="grid grid-cols-4 gap-3">
+          {#each Array(4) as _}
+            <div class="rounded-lg border border-edge bg-panel p-3 space-y-2">
+              <div class="h-2.5 w-20 rounded bg-elevated"></div>
+              <div class="h-6 w-24 rounded bg-elevated"></div>
+              <div class="h-2 w-28 rounded bg-subtle"></div>
+            </div>
+          {/each}
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="rounded-lg border border-edge bg-panel p-3 space-y-3">
+            <div class="h-3 w-32 rounded bg-elevated"></div>
+            {#each Array(5) as _}
+              <div class="flex justify-between gap-4">
+                <div class="h-2.5 w-24 rounded bg-subtle"></div>
+                <div class="h-2.5 w-40 rounded bg-elevated"></div>
+              </div>
+            {/each}
+          </div>
+          <div class="rounded-lg border border-edge bg-panel p-3 space-y-3">
+            <div class="h-3 w-32 rounded bg-elevated"></div>
+            <div class="grid grid-cols-2 gap-2">
+              {#each Array(4) as _}
+                <div class="h-12 rounded-lg bg-app border border-edge"></div>
+              {/each}
+            </div>
+          </div>
+        </div>
       </div>
     {:else if loadError}
-      <div class="p-4 bg-rose-950/40 border-l-4 border-rose-500 text-rose-300 font-mono">{loadError}</div>
+      <div class="p-4 bg-err-bg border-l-2 border-err text-err font-mono">{loadError}</div>
     {:else if stats}
       <!-- Primary stat cards -->
       <div class="grid grid-cols-4 gap-3">
@@ -99,7 +126,7 @@
           <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-faint">
             <Layers class="w-3 h-3" /> {t('dash.free_space')}
           </div>
-          <div class={`text-xl font-bold font-mono mt-1 ${wastedPct > 15 ? 'text-amber-400' : 'text-fg'}`}>
+          <div class={`text-xl font-bold font-mono mt-1 ${wastedPct > 15 ? 'text-warn' : 'text-fg'}`}>
             {fmtBytes(stats.freelist_pages * stats.page_size)}
           </div>
           <div class="text-[10px] text-faint font-mono mt-0.5">
@@ -111,7 +138,7 @@
             <Clock class="w-3 h-3" /> {t('dash.queries')}
           </div>
           <div class="text-xl font-bold text-fg font-mono mt-1">{audit?.total ?? 0}</div>
-          <div class="text-[10px] font-mono mt-0.5 {audit && audit.error_count > 0 ? 'text-rose-400' : 'text-faint'}">
+          <div class="text-[10px] font-mono mt-0.5 {audit && audit.error_count > 0 ? 'text-err' : 'text-faint'}">
             {t('dash.errors_avg', { errors: audit?.error_count ?? 0, avg: audit?.avg_duration_ms.toFixed(1) ?? '0' })}
           </div>
         </div>
@@ -121,7 +148,7 @@
         <!-- Storage & Engine -->
         <div class="rounded-lg border border-edge bg-panel overflow-hidden">
           <div class="p-3 border-b border-edge font-semibold text-fg2 flex items-center gap-2">
-            <Database class="w-3.5 h-3.5 text-sky-400" /> {t('dash.engine')}
+            <Database class="w-3.5 h-3.5 text-accent" /> {t('dash.engine')}
           </div>
           <table class="w-full font-mono text-[11px]">
             <tbody>
@@ -154,35 +181,35 @@
         <!-- Schema Objects -->
         <div class="rounded-lg border border-edge bg-panel overflow-hidden">
           <div class="p-3 border-b border-edge font-semibold text-fg2 flex items-center gap-2">
-            <FileText class="w-3.5 h-3.5 text-amber-400" /> {t('dash.objects')}
+            <FileText class="w-3.5 h-3.5 text-accent" /> {t('dash.objects')}
           </div>
           <div class="grid grid-cols-2 gap-2 p-3">
             <button
-              class="flex items-center gap-2.5 p-2.5 rounded-lg bg-app border border-edge hover:border-sky-500/40 transition-colors text-left"
+              class="flex items-center gap-2.5 p-2.5 rounded-lg bg-app border border-edge hover:border-accent-edge transition-colors text-left"
               onclick={() => workspace.openErdTab()}
             >
-              <Table class="w-4 h-4 text-sky-400" />
+              <Table class="w-4 h-4 text-accent" />
               <div>
                 <div class="font-mono font-bold text-fg">{stats.table_count}</div>
                 <div class="text-[10px] text-faint">{t('dash.tables')}</div>
               </div>
             </button>
             <div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-app border border-edge">
-              <Eye class="w-4 h-4 text-indigo-400" />
+              <Eye class="w-4 h-4 text-muted" />
               <div>
                 <div class="font-mono font-bold text-fg">{stats.view_count}</div>
                 <div class="text-[10px] text-faint">{t('dash.views')}</div>
               </div>
             </div>
             <div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-app border border-edge">
-              <KeyRound class="w-4 h-4 text-amber-400" />
+              <KeyRound class="w-4 h-4 text-muted" />
               <div>
                 <div class="font-mono font-bold text-fg">{stats.index_count}</div>
                 <div class="text-[10px] text-faint">{t('dash.indexes')}</div>
               </div>
             </div>
             <div class="flex items-center gap-2.5 p-2.5 rounded-lg bg-app border border-edge">
-              <Zap class="w-4 h-4 text-violet-400" />
+              <Zap class="w-4 h-4 text-muted" />
               <div>
                 <div class="font-mono font-bold text-fg">{stats.trigger_count}</div>
                 <div class="text-[10px] text-faint">{t('dash.triggers')}</div>
@@ -192,7 +219,7 @@
           {#if audit}
             <div class="px-3 pb-3">
               <button
-                class="w-full flex items-center justify-center gap-1.5 py-1.5 rounded bg-violet-500/15 hover:bg-violet-500/25 text-violet-300 border border-violet-500/30 text-[11px] transition-colors"
+                class="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md bg-accent-soft hover:opacity-90 text-accent border border-accent-edge text-[11px] font-medium transition-colors"
                 onclick={() => workspace.openAuditTab()}
               >
                 <ShieldCheck class="w-3.5 h-3.5" /> {t('dash.open_audit')}
@@ -212,22 +239,22 @@
             {@const n = tbl.row_count_estimate ?? 0}
             {@const pct = Math.round((n / maxTableRows) * 100)}
             <button
-              class="w-full flex items-center gap-2 group"
+              class="w-full flex items-center gap-3 py-1 px-1.5 rounded hover:bg-hover group transition-colors"
               onclick={() => workspace.openTableTab(tbl.name)}
               title={t('dash.open_table', { name: tbl.name })}
             >
-              <span class="w-32 truncate text-right text-muted group-hover:text-fg font-mono text-[10px]">{tbl.name}</span>
-              <div class="flex-1 h-4 rounded bg-app overflow-hidden">
+              <span class="w-36 truncate text-left text-fg2 group-hover:text-fg font-mono text-[11px]">{tbl.name}</span>
+              <div class="flex-1 flex items-center">
                 <div
-                  class="h-full rounded bg-gradient-to-r from-sky-600/70 to-indigo-500/70 group-hover:from-sky-500 group-hover:to-indigo-400 transition-all"
+                  class="h-2 rounded-sm bg-accent/75 group-hover:bg-accent transition-all"
                   style={`width: ${Math.max(pct, n > 0 ? 2 : 0)}%`}
                 ></div>
               </div>
-              <span class="w-16 text-muted font-mono text-[10px]">{n.toLocaleString()}</span>
+              <span class="w-20 text-right text-muted font-mono text-[11px]">{n.toLocaleString()}</span>
             </button>
           {/each}
           {#if workspace.tables.filter((tbl) => tbl.table_type === 'table').length === 0}
-            <div class="text-faint italic p-2">{t('dash.no_tables')}</div>
+            <div class="text-faint p-4 text-center">{t('dash.no_tables')}</div>
           {/if}
         </div>
       </div>

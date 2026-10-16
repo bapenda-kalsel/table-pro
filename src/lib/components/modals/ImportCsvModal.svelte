@@ -69,8 +69,8 @@
     <div class="w-[480px] bg-panel border border-edge rounded-xl shadow-2xl flex flex-col text-xs overflow-hidden select-none">
       <!-- Header -->
       <div class="p-4 border-b border-edge flex items-center justify-between bg-subtle">
-        <div class="flex items-center gap-2">
-          <div class="p-1.5 rounded bg-sky-500/20 text-sky-400">
+        <div class="flex items-center gap-2.5">
+          <div class="p-1.5 rounded-md bg-accent-soft border border-accent-edge text-accent">
             <FileUp class="w-4 h-4" />
           </div>
           <div>
@@ -85,18 +85,18 @@
 
       <!-- Body -->
       <div class="p-4 space-y-4">
-        <div class="space-y-1">
-          <label for="ic-file" class="text-[10px] text-muted uppercase font-semibold">{t('ic.file')}</label>
+        <div class="space-y-1.5">
+          <label for="ic-file" class="text-[10px] text-muted uppercase font-semibold block">{t('ic.file')}</label>
           <div class="flex gap-2">
             <input
               id="ic-file"
               type="text"
               bind:value={filePath}
               placeholder="/path/to/data.csv"
-              class="flex-1 bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none focus:border-sky-500 font-mono text-[11px]"
+              class="flex-1 bg-input border border-edge rounded-md px-3 py-1.5 text-fg focus:outline-none focus:border-accent font-mono text-[11px]"
             />
             <button
-              class="flex items-center gap-1 px-3 py-1.5 rounded bg-elevated hover:bg-hover text-fg transition-colors"
+              class="flex items-center gap-1 px-3 py-1.5 rounded-md bg-elevated hover:bg-hover border border-edge text-fg transition-colors"
               onclick={pickFile}
             >
               <FileText class="w-3.5 h-3.5" /><span>{t('common.browse')}</span>
@@ -104,14 +104,14 @@
           </div>
         </div>
 
-        <div class="space-y-1">
-          <label for="ic-table" class="text-[10px] text-muted uppercase font-semibold">{t('ic.table')}</label>
+        <div class="space-y-1.5">
+          <label for="ic-table" class="text-[10px] text-muted uppercase font-semibold block">{t('ic.table')}</label>
           <input
             id="ic-table"
             type="text"
             bind:value={targetTable}
             placeholder={t('ic.table_ph')}
-            class="w-full bg-app border border-edge rounded px-3 py-1.5 text-fg focus:outline-none focus:border-sky-500 font-mono text-[11px]"
+            class="w-full bg-input border border-edge rounded-md px-3 py-1.5 text-fg focus:outline-none focus:border-accent font-mono text-[11px]"
           />
           <p class="text-[10px] text-faint">
             {t('ic.table_note')}
@@ -119,12 +119,12 @@
         </div>
 
         {#if resultMsg}
-          <div class="p-2.5 rounded border bg-emerald-950/30 border-emerald-900/40 text-emerald-300 text-[11px] flex items-center gap-2">
+          <div class="p-2.5 rounded-md border bg-ok-bg border-ok-edge text-ok text-[11px] flex items-center gap-2">
             <CheckCircle2 class="w-4 h-4 shrink-0" /><span>{resultMsg}</span>
           </div>
         {/if}
         {#if errorMsg}
-          <div class="p-2.5 rounded border bg-rose-950/30 border-rose-900/40 text-rose-300 text-[11px] font-mono select-text">
+          <div class="p-2.5 rounded-md border bg-err-bg border-err-edge text-err text-[11px] font-mono select-text">
             {errorMsg}
           </div>
         {/if}
@@ -132,11 +132,11 @@
 
       <!-- Footer -->
       <div class="p-3 border-t border-edge bg-subtle flex justify-end gap-2">
-        <button class="px-3 py-1.5 rounded hover:bg-hover text-muted hover:text-fg" onclick={close}>
+        <button class="px-3 py-1.5 rounded-md hover:bg-hover text-muted hover:text-fg" onclick={close}>
           {t('common.close')}
         </button>
         <button
-          class="px-4 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-semibold shadow-md transition-colors disabled:opacity-50"
+          class="px-4 py-1.5 rounded-md bg-accent-strong hover:opacity-95 text-white font-semibold transition-colors disabled:opacity-50"
           onclick={runImport}
           disabled={isImporting || !filePath || !targetTable}
         >

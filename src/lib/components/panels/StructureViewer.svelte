@@ -51,16 +51,16 @@
   <!-- Header -->
   <div class="h-10 border-b border-edge bg-panel flex items-center justify-between px-4">
     <div class="flex items-center gap-2 font-semibold text-fg">
-      <FileCode class="w-4 h-4 text-amber-400" />
+      <FileCode class="w-4 h-4 text-accent" />
       <span>{t('structure.title', { table: tableName })}</span>
     </div>
     <button
-      class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-elevated hover:bg-hover text-fg transition-colors"
+      class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-elevated hover:bg-hover border border-edge text-fg transition-colors"
       onclick={copyDdl}
     >
       {#if copied}
-        <Check class="w-3.5 h-3.5 text-emerald-400" />
-        <span class="text-emerald-400">{t('structure.copied')}</span>
+        <Check class="w-3.5 h-3.5 text-ok" />
+        <span class="text-ok">{t('structure.copied')}</span>
       {:else}
         <Copy class="w-3.5 h-3.5" />
         <span>{t('structure.copy')}</span>
@@ -73,14 +73,14 @@
     {#each sections as s}
       {@const Icon = s.icon}
       <button
-        class={`flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-medium transition-colors ${
+        class={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors ${
           activeSection === s.key
             ? 'bg-elevated text-fg border border-strong'
             : 'text-muted hover:text-fg hover:bg-elevated'
         }`}
         onclick={() => (activeSection = s.key)}
       >
-        <Icon class="w-3.5 h-3.5" />
+        <Icon class={`w-3.5 h-3.5 ${activeSection === s.key ? 'text-accent' : 'text-muted'}`} />
         <span>{s.label}</span>
       </button>
     {/each}
@@ -88,11 +88,24 @@
 
   <div class="flex-1 overflow-auto p-4">
     {#if loadError}
-      <div class="p-4 bg-rose-950/40 border-l-4 border-rose-500 text-rose-300 font-mono text-xs">{loadError}</div>
+      <div class="p-4 bg-err-bg border-l-2 border-err text-err font-mono text-xs">{loadError}</div>
     {:else if !schema}
-      <div class="flex items-center justify-center h-32 text-faint gap-2">
-        <div class="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-        <span>{t('structure.loading')}</span>
+      <!-- Layout-matched skeletal loader -->
+      <div class="border border-edge rounded-lg overflow-hidden bg-panel animate-pulse" role="status" aria-label={t('structure.loading')}>
+        <div class="flex bg-elevated border-b border-edge px-3 py-2.5 gap-4">
+          {#each Array(5) as _}
+            <div class="flex-1 h-2.5 rounded bg-subtle"></div>
+          {/each}
+        </div>
+        {#each Array(8) as _, r}
+          <div class="flex border-b border-edge/50 px-3 py-2.5 gap-4">
+            {#each Array(5) as _, c}
+              <div class="flex-1">
+                <div class="h-2.5 rounded bg-elevated" style={`width: ${40 + ((r * 11 + c * 17) % 45)}%`}></div>
+              </div>
+            {/each}
+          </div>
+        {/each}
       </div>
     {:else}
 
@@ -114,15 +127,17 @@
                   <td class="px-3 py-2 font-semibold text-fg">
                     <span class="flex items-center gap-1.5">
                       {#if col.is_primary_key}
-                        <span class="text-amber-400 font-bold" title={t('structure.col_pk')}>🔑</span>
+                        <span title={t('structure.col_pk')} class="inline-flex">
+                          <KeyRound class="w-3 h-3 text-warn shrink-0" />
+                        </span>
                       {/if}
                       <span>{col.name}</span>
                     </span>
                   </td>
-                  <td class="px-3 py-2 text-sky-400">{col.data_type || t('structure.no_type')}</td>
+                  <td class="px-3 py-2 text-accent">{col.data_type || t('structure.no_type')}</td>
                   <td class="px-3 py-2 text-muted">{col.is_nullable ? 'YES' : 'NO'}</td>
                   <td class="px-3 py-2">
-                    <span class={col.is_primary_key ? 'text-amber-400 font-bold' : 'text-faint'}>
+                    <span class={col.is_primary_key ? 'text-warn font-bold' : 'text-faint'}>
                       {col.is_primary_key ? 'PRIMARY KEY' : '-'}
                     </span>
                   </td>
@@ -135,7 +150,10 @@
 
       {:else if activeSection === 'indexes'}
         {#if schema.indexes.length === 0}
-          <div class="p-8 text-center text-faint italic">{t('structure.no_indexes')}</div>
+          <div class="p-10 rounded-lg border border-edge bg-panel flex flex-col items-center justify-center text-center gap-2 text-faint">
+            <KeyRound class="w-5 h-5 text-muted" />
+            <div class="text-xs text-muted">{t('structure.no_indexes')}</div>
+          </div>
         {:else}
           <div class="border border-edge rounded-lg overflow-hidden bg-panel">
             <table class="w-full text-left font-mono text-[11px]">
@@ -152,9 +170,9 @@
                 {#each schema.indexes as idx}
                   <tr class="border-b border-edge/50 hover:bg-hover">
                     <td class="px-3 py-2 font-semibold text-fg">{idx.name}</td>
-                    <td class="px-3 py-2 text-sky-400">{idx.columns.join(', ') || '-'}</td>
+                    <td class="px-3 py-2 text-accent">{idx.columns.join(', ') || '-'}</td>
                     <td class="px-3 py-2">
-                      <span class={idx.is_unique ? 'text-emerald-400 font-bold' : 'text-faint'}>
+                      <span class={idx.is_unique ? 'text-ok font-bold' : 'text-faint'}>
                         {idx.is_unique ? 'UNIQUE' : '-'}
                       </span>
                     </td>
@@ -171,7 +189,10 @@
 
       {:else if activeSection === 'fks'}
         {#if schema.foreign_keys.length === 0}
-          <div class="p-8 text-center text-faint italic">{t('structure.no_fks')}</div>
+          <div class="p-10 rounded-lg border border-edge bg-panel flex flex-col items-center justify-center text-center gap-2 text-faint">
+            <Link class="w-5 h-5 text-muted" />
+            <div class="text-xs text-muted">{t('structure.no_fks')}</div>
+          </div>
         {:else}
           <div class="border border-edge rounded-lg overflow-hidden bg-panel">
             <table class="w-full text-left font-mono text-[11px]">
@@ -187,7 +208,7 @@
                 {#each schema.foreign_keys as fk}
                   <tr class="border-b border-edge/50 hover:bg-hover">
                     <td class="px-3 py-2 text-fg font-semibold">{fk.from_column}</td>
-                    <td class="px-3 py-2 text-sky-400">
+                    <td class="px-3 py-2 text-accent">
                       <button class="hover:underline" onclick={() => workspace.openTableTab(fk.referenced_table)}>
                         {fk.referenced_table}
                       </button>.{fk.to_column ?? '?'}
@@ -203,13 +224,16 @@
 
       {:else if activeSection === 'triggers'}
         {#if schema.triggers.length === 0}
-          <div class="p-8 text-center text-faint italic">{t('structure.no_triggers')}</div>
+          <div class="p-10 rounded-lg border border-edge bg-panel flex flex-col items-center justify-center text-center gap-2 text-faint">
+            <Zap class="w-5 h-5 text-muted" />
+            <div class="text-xs text-muted">{t('structure.no_triggers')}</div>
+          </div>
         {:else}
           <div class="space-y-3">
             {#each schema.triggers as trig}
               <div class="border border-edge rounded-lg overflow-hidden bg-panel">
                 <div class="p-2.5 border-b border-edge flex items-center gap-2">
-                  <Zap class="w-3.5 h-3.5 text-violet-400" />
+                  <Zap class="w-3.5 h-3.5 text-accent" />
                   <span class="font-semibold text-fg">{trig.name}</span>
                 </div>
                 <pre class="p-3 font-mono text-[11px] text-fg2 overflow-x-auto select-text">{trig.sql}</pre>

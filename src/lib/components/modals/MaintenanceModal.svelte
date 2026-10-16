@@ -57,8 +57,8 @@
     <div class="w-[540px] bg-panel border border-edge rounded-xl shadow-2xl flex flex-col text-xs overflow-hidden select-none">
       <!-- Header -->
       <div class="p-4 border-b border-edge flex items-center justify-between bg-subtle">
-        <div class="flex items-center gap-2">
-          <div class="p-1.5 rounded bg-emerald-500/20 text-emerald-400">
+        <div class="flex items-center gap-2.5">
+          <div class="p-1.5 rounded-md bg-accent-soft border border-accent-edge text-accent">
             <Wrench class="w-4 h-4" />
           </div>
           <div>
@@ -79,19 +79,19 @@
         <div class="block font-semibold text-fg2">{t('mt.choose')}</div>
 
         {#each actions as action}
-          <label class="flex items-start gap-3 p-3 rounded-lg border border-edge hover:bg-elevated cursor-pointer transition-colors">
+          <label class={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedAction === action.key ? 'border-accent-edge bg-accent-soft/40' : 'border-edge hover:bg-elevated'}`}>
             <input
               type="radio"
               name="maintenance-action"
               value={action.key}
               checked={selectedAction === action.key}
               onchange={() => (selectedAction = action.key)}
-              class="mt-1"
+              class="mt-1 accent-accent"
             />
             <div>
               <div class="font-semibold text-fg flex items-center gap-1.5">
                 {#if action.key === 'backup'}
-                  <Archive class="w-3.5 h-3.5 text-sky-400" />
+                  <Archive class="w-3.5 h-3.5 text-accent" />
                 {/if}
                 {action.title}
               </div>
@@ -101,14 +101,14 @@
         {/each}
 
         {#if outputResult}
-          <div class="p-3 rounded bg-app border border-edge font-mono text-[11px] text-emerald-400 select-text whitespace-pre-wrap">
+          <div class="p-3 rounded-md bg-app border border-edge font-mono text-[11px] text-ok select-text whitespace-pre-wrap">
             <div class="font-bold text-fg2 mb-1">{t('mt.result')}</div>
             {outputResult}
           </div>
         {/if}
         {#if backupPath}
           <button
-            class="flex items-center gap-1.5 text-[11px] text-sky-400 hover:underline"
+            class="flex items-center gap-1.5 text-[11px] text-accent hover:underline"
             onclick={openBackupsFolder}
           >
             <FolderOpen class="w-3.5 h-3.5" /> {t('mt.open_backups')}
@@ -119,13 +119,13 @@
       <!-- Footer -->
       <div class="p-3 border-t border-edge bg-subtle flex justify-end gap-2">
         <button
-          class="px-3 py-1.5 rounded hover:bg-hover text-muted hover:text-fg"
+          class="px-3 py-1.5 rounded-md hover:bg-hover text-muted hover:text-fg"
           onclick={() => (workspace.isMaintenanceModalOpen = false)}
         >
           {t('common.close')}
         </button>
         <button
-          class="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-md transition-colors disabled:opacity-50"
+          class="px-4 py-1.5 rounded-md bg-accent-strong hover:opacity-95 text-white font-semibold transition-colors disabled:opacity-50"
           onclick={executeMaintenance}
           disabled={isRunning}
         >
