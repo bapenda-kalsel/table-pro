@@ -22,6 +22,7 @@
   import { checkForUpdates } from '$lib/stores/updater';
   import ConfirmDialog from '$lib/components/modals/ConfirmDialog.svelte';
   import Toasts from '$lib/components/chrome/Toasts.svelte';
+  import Logo from '$lib/components/chrome/Logo.svelte';
   import { Plus, Database, Terminal } from 'lucide-svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
@@ -86,9 +87,7 @@
           <!-- Empty Workspace State -->
           <div class="flex-1 flex flex-col items-center justify-center text-center p-8 text-faint">
             <div class="max-w-md w-full rounded-xl border border-edge bg-panel/60 p-8 flex flex-col items-center space-y-4">
-              <div class="w-12 h-12 rounded-xl bg-accent-soft border border-accent-edge flex items-center justify-center text-accent">
-                <Database class="w-6 h-6" />
-              </div>
+              <Logo class="w-14 h-14 shadow-lg rounded-2xl" />
               <div class="space-y-1.5">
                 <h2 class="text-sm font-semibold tracking-tight text-fg">{t('welcome.title')}</h2>
                 <p class="text-xs text-muted leading-relaxed max-w-[44ch]">

@@ -1,5 +1,17 @@
 # Design System: TablePro
 
+## 0. Brand Identity & Logo System (`/brandkit`)
+- **Core Metaphor:** *Precision Relational Matrix (`T` + `P` Monogram)*.
+- **Symbol Construction:** Built on an 8×8 modular grid inside a machined squircle (`#141418` fill, `#3F3F46` perimeter frame).
+  1. **Top Schema Header Bar (`#F4F4F5`):** Forms the horizontal crossbar of `T` and represents a database table header with a recessed key slot (`#0E0E11`) and status node (`#0D9488`).
+  2. **Primary Key Spine (`#F4F4F5`):** Forms the vertical stem shared by `T` and `P`, representing the primary key column.
+  3. **Active Staged Cell (`#2DD4BF`):** Forms the upper loop of `P` in Calibrated Verdigris, representing an inspected/staged cell in an atomic transaction.
+  4. **Relational Matrix Node (`#1C1C24` + `#2DD4BF` border):** Completes the 2×2 tabular grid beneath the schema header.
+- **Brand Assets:**
+  - Master Vector Mark: `static/logo.svg`, `docs/logo.svg`, and Svelte component `src/lib/components/chrome/Logo.svelte`
+  - 3×3 Brand Identity Presentation Board: `docs/brandkit.svg` & `docs/brandkit.png`
+  - Native App Icons: `src-tauri/icons/*` (`.icns`, `.ico`, `.png`), `static/favicon.png`, `docs/icon.png`
+
 ## 1. Visual Theme & Atmosphere
 TablePro operates across two calibrated surfaces governed by a unified architectural identity: a high-density native database workbench (`VISUAL_DENSITY: 8`, `DESIGN_VARIANCE: 6`, `MOTION_INTENSITY: 6`) and an asymmetric editorial-technical product showcase (`DESIGN_VARIANCE: 8`, `MOTION_INTENSITY: 6`, `VISUAL_DENSITY: 4`).
 

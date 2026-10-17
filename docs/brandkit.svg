@@ -1,0 +1,292 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1350" fill="none">
+  <defs>
+    <style>
+      .sans { font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .mono { font-family: "Geist Mono", "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+    </style>
+  </defs>
+
+  <!-- Outer Charcoal Presentation Canvas -->
+  <rect width="1800" height="1350" fill="#09090B" />
+
+  <!-- Top Presentation Header -->
+  <text x="48" y="34" fill="#71717A" class="mono" font-size="11" letter-spacing="2">TABLEPRO / BRAND IDENTITY SYSTEM</text>
+  <text x="1752" y="34" fill="#71717A" class="mono" font-size="11" letter-spacing="2" text-anchor="end">GRID 3x3 / REV 01</text>
+
+  <!-- ========================================================= -->
+  <!-- ROW 1, COL 1: 01 / LOGO COVER                             -->
+  <!-- ========================================================= -->
+  <g transform="translate(48, 52)">
+    <rect width="548" height="396" rx="18" fill="#0E0E11" stroke="#27272A" stroke-width="1.5" />
+    <text x="24" y="32" fill="#71717A" class="mono" font-size="10" letter-spacing="1.8">01 / PRIMARY MARK</text>
+
+    <!-- Centered Mark + Wordmark -->
+    <g transform="translate(154, 96)">
+      <rect x="0" y="0" width="96" height="96" rx="22" fill="#141418" stroke="#3F3F46" stroke-width="2" />
+      <rect x="20" y="20" width="56" height="13" rx="3.5" fill="#F4F4F5" />
+      <rect x="25" y="24.5" width="9" height="4" rx="1.5" fill="#141418" />
+      <circle cx="69" cy="26.5" r="2.2" fill="#0D9488" />
+      <rect x="28" y="38" width="14" height="39" rx="3.5" fill="#F4F4F5" />
+      <rect x="46" y="38" width="30" height="18" rx="4.5" fill="#2DD4BF" />
+      <rect x="51" y="45" width="16" height="4" rx="1.5" fill="#042F2E" />
+      <rect x="46" y="60" width="21" height="17" rx="3.5" fill="#1C1C24" stroke="#2DD4BF" stroke-opacity="0.55" stroke-width="1.8" />
+      <circle cx="56.5" cy="68.5" r="2.5" fill="#2DD4BF" />
+
+      <text x="116" y="56" fill="#F4F4F5" class="sans" font-size="34" font-weight="650" letter-spacing="-1">TablePro</text>
+      <text x="118" y="78" fill="#71717A" class="mono" font-size="11" letter-spacing="1.5">RELATIONAL WORKBENCH</text>
+    </g>
+
+    <text x="24" y="372" fill="#52525B" class="mono" font-size="10">T+P MONOGRAM / SCHEMA HEADER + ACTIVE CELL</text>
+  </g>
+
+  <!-- ========================================================= -->
+  <!-- ROW 1, COL 2: 02 / LOGO CONSTRUCTION                      -->
+  <!-- ========================================================= -->
+  <g transform="translate(626, 52)">
+    <rect width="548" height="396" rx="18" fill="#0E0E11" stroke="#27272A" stroke-width="1.5" />
+    <text x="24" y="32" fill="#71717A" class="mono" font-size="10" letter-spacing="1.8">02 / GEOMETRIC CONSTRUCTION</text>
+
+    <!-- Construction Grid Blueprint -->
+    <g transform="translate(154, 72)">
+      <rect x="0" y="0" width="240" height="240" rx="54" fill="#111114" stroke="#2DD4BF" stroke-opacity="0.35" stroke-width="1.5" stroke-dasharray="4 4" />
+      <!-- Grid lines -->
+      <line x1="0" y1="48" x2="240" y2="48" stroke="#27272A" stroke-width="1" />
+      <line x1="0" y1="84" x2="240" y2="84" stroke="#27272A" stroke-width="1" />
+      <line x1="0" y1="94" x2="240" y2="94" stroke="#2DD4BF" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="3 3" />
+      <line x1="0" y1="142" x2="240" y2="142" stroke="#27272A" stroke-width="1" />
+      <line x1="0" y1="196" x2="240" y2="196" stroke="#27272A" stroke-width="1" />
+
+      <line x1="48" y1="0" x2="48" y2="240" stroke="#27272A" stroke-width="1" />
+      <line x1="70" y1="0" x2="70" y2="240" stroke="#27272A" stroke-width="1" />
+      <line x1="106" y1="0" x2="106" y2="240" stroke="#2DD4BF" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="3 3" />
+      <line x1="116" y1="0" x2="116" y2="240" stroke="#2DD4BF" stroke-opacity="0.35" stroke-width="1" stroke-dasharray="3 3" />
+      <line x1="192" y1="0" x2="192" y2="240" stroke="#27272A" stroke-width="1" />
+
+      <!-- Wireframe + Solid Overlay -->
+      <rect x="48" y="48" width="144" height="36" rx="9" fill="#F4F4F5" fill-opacity="0.15" stroke="#F4F4F5" stroke-width="1.5" />
+      <rect x="70" y="94" width="36" height="102" rx="9" fill="#F4F4F5" fill-opacity="0.15" stroke="#F4F4F5" stroke-width="1.5" />
+      <rect x="116" y="94" width="76" height="48" rx="11" fill="#2DD4BF" fill-opacity="0.22" stroke="#2DD4BF" stroke-width="1.5" />
+      <rect x="116" y="152" width="54" height="44" rx="9" fill="#0D9488" fill-opacity="0.15" stroke="#2DD4BF" stroke-opacity="0.6" stroke-width="1.5" />
+
+      <!-- Dimension Callouts -->
+      <circle cx="48" cy="48" r="3" fill="#2DD4BF" />
+      <circle cx="192" cy="48" r="3" fill="#2DD4BF" />
+      <circle cx="116" cy="94" r="3" fill="#2DD4BF" />
+      <circle cx="192" cy="142" r="3" fill="#2DD4BF" />
+    </g>
+
+    <text x="24" y="372" fill="#52525B" class="mono" font-size="10">8x8 MODULAR GRID / R=22% SQUIRCLE</text>
+    <text x="524" y="372" fill="#2DD4BF" class="mono" font-size="10" text-anchor="end">1 : 1.618</text>
+  </g>
+
+  <!-- ========================================================= -->
+  <!-- ROW 1, COL 3: 03 / DIGITAL APPLICATION                    -->
+  <!-- ========================================================= -->
+  <g transform="translate(1204, 52)">
+    <rect width="548" height="396" rx="18" fill="#0E0E11" stroke="#27272A" stroke-width="1.5" />
+    <text x="24" y="32" fill="#71717A" class="mono" font-size="10" letter-spacing="1.8">03 / WORKBENCH CHROME</text>
+
+    <!-- Native Window Crop -->
+    <g transform="translate(36, 76)">
+      <rect width="476" height="264" rx="14" fill="#141418" stroke="#3F3F46" stroke-width="1.5" />
+      <!-- TitleBar -->
+      <rect width="476" height="44" rx="14" fill="#1C1C22" />
+      <line x1="0" y1="44" x2="476" y2="44" stroke="#27272A" stroke-width="1" />
+
+      <!-- Mini Logo in TitleBar -->
+      <g transform="translate(16, 10)">
+        <rect width="24" height="24" rx="6" fill="#0E0E11" stroke="#3F3F46" stroke-width="1" />
+        <rect x="5" y="5" width="14" height="3.5" rx="1" fill="#F4F4F5" />
+        <rect x="7" y="10" width="3.5" height="9" rx="1" fill="#F4F4F5" />
+        <rect x="12" y="10" width="7" height="4.5" rx="1" fill="#2DD4BF" />
+        <rect x="12" y="15.5" width="5" height="3.5" rx="1" fill="#0D9488" />
+      </g>
+      <text x="48" y="27" fill="#F4F4F5" class="sans" font-size="13" font-weight="600">TablePro</text>
+
+      <!-- Connection Pill -->
+      <rect x="118" y="10" width="196" height="24" rx="6" fill="#111114" stroke="#27272A" stroke-width="1" />
+      <circle cx="130" cy="22" r="3.5" fill="#2DD4BF" />
+      <text x="140" y="26" fill="#D4D4D8" class="mono" font-size="10">prod_core_postgres</text>
+      <rect x="260" y="14" width="44" height="16" rx="3" fill="#2DD4BF" fill-opacity="0.14" />
+      <text x="282" y="25" fill="#2DD4BF" class="mono" font-size="9" text-anchor="middle">TLS 1.3</text>
+
+      <!-- Mock SQL Content -->
+      <text x="24" y="82" fill="#71717A" class="mono" font-size="11">-- atomic staged transaction</text>
+      <text x="24" y="106" fill="#2DD4BF" class="mono" font-size="12" font-weight="600">SELECT</text>
+      <text x="78" y="106" fill="#F4F4F5" class="mono" font-size="12">id, account_code, balance_idr</text>
+      <text x="24" y="128" fill="#2DD4BF" class="mono" font-size="12" font-weight="600">FROM</text>
+      <text x="64" y="128" fill="#F4F4F5" class="mono" font-size="12">"public"."ledger_entries"</text>
+      <text x="24" y="150" fill="#2DD4BF" class="mono" font-size="12" font-weight="600">WHERE</text>
+      <text x="72" y="150" fill="#D4D4D8" class="mono" font-size="12">reconciled = true</text>
+      <text x="24" y="172" fill="#2DD4BF" class="mono" font-size="12" font-weight="600">LIMIT</text>
+      <text x="70" y="172" fill="#F4F4F5" class="mono" font-size="12">100;</text>
+
+      <!-- Status strip -->
+      <rect x="0" y="228" width="476" height="36" rx="8" fill="#111114" />
+      <text x="20" y="250" fill="#34D399" class="mono" font-size="10">READY / 1.4ms</text>
+      <text x="456" y="250" fill="#71717A" class="mono" font-size="10" text-anchor="end">SQLITE + MYSQL + POSTGRES</text>
+    </g>
+  </g>
+
+  <!-- ========================================================= -->
+  <!-- ROW 2, COL 1: 04 / BRAND ESSENCE                          -->
+  <!-- ========================================================= -->
+  <g transform="translate(48, 476)">
+    <rect width="548" height="396" rx="18" fill="#0E0E11" stroke="#27272A" stroke-width="1.5" />
+    <text x="24" y="32" fill="#71717A" class="mono" font-size="10" letter-spacing="1.8">04 / BRAND PROMISE</text>
+
+    <text x="36" y="168" fill="#F4F4F5" class="sans" font-size="42" font-weight="650" letter-spacing="-1.5">Deterministic SQL.</text>
+    <text x="36" y="220" fill="#2DD4BF" class="sans" font-size="42" font-weight="650" letter-spacing="-1.5">Zero guesswork.</text>
+
+    <text x="36" y="274" fill="#A1A1AA" class="sans" font-size="15">Inspect every staged INSERT, UPDATE, and DELETE</text>
+    <text x="36" y="296" fill="#A1A1AA" class="sans" font-size="15">before it touches your production schema.</text>
+
+    <text x="36" y="372" fill="#52525B" class="mono" font-size="10">NATIVE TAURI 2 + RUST ENGINE</text>
+  </g>
+
+  <!-- ========================================================= -->
+  <!-- ROW 2, COL 2: 05 / COLOR SYSTEM                           -->
+  <!-- ========================================================= -->
+  <g transform="translate(626, 476)">
+    <rect width="548" height="396" rx="18" fill="#0E0E11" stroke="#27272A" stroke-width="1.5" />
+    <text x="24" y="32" fill="#71717A" class="mono" font-size="10" letter-spacing="1.8">05 / CALIBRATED PALETTE</text>
+
+    <!-- Swatch Cards -->
+    <g transform="translate(24, 60)">
+      <rect x="0" y="0" width="92" height="284" rx="12" fill="#0E0E11" stroke="#27272A" stroke-width="1.5" />
+      <text x="14" y="246" fill="#F4F4F5" class="sans" font-size="11" font-weight="600">Obsidian</text>
+      <text x="14" y="266" fill="#71717A" class="mono" font-size="10">#0E0E11</text>
+
+      <rect x="102" y="0" width="92" height="284" rx="12" fill="#18181F" stroke="#27272A" stroke-width="1.5" />
+      <text x="116" y="246" fill="#F4F4F5" class="sans" font-size="11" font-weight="600">Graphite</text>
+      <text x="116" y="266" fill="#A1A1AA" class="mono" font-size="10">#141418</text>
+
+      <rect x="204" y="0" width="92" height="284" rx="12" fill="#2DD4BF" />
+      <text x="218" y="246" fill="#042F2E" class="sans" font-size="11" font-weight="700">Verdigris</text>
+      <text x="218" y="266" fill="#042F2E" class="mono" font-size="10">#2DD4BF</text>
+
+      <rect x="306" y="0" width="92" height="284" rx="12" fill="#0D9488" />
+      <text x="320" y="246" fill="#F4F4F5" class="sans" font-size="11" font-weight="600">Deep Teal</text>
+      <text x="320" y="266" fill="#D4D4D8" class="mono" font-size="10">#0D9488</text>
+
+      <rect x="408" y="0" width="92" height="284" rx="12" fill="#F4F4F5" />
+      <text x="422" y="246" fill="#18181B" class="sans" font-size="11" font-weight="700">Chalk Ink</text>
+      <text x="422" y="266" fill="#52525B" class="mono" font-size="10">#F4F4F5</text>
+    </g>
+
+    <text x="24" y="372" fill="#52525B" class="mono" font-size="10">SINGLE ACCENT LOCK / SATURATION &lt; 75%</text>
+  </g>
+
+  <!-- ========================================================= -->
+  <!-- ROW 2, COL 3: 06 / TYPOGRAPHY                             -->
+  <!-- ========================================================= -->
+  <g transform="translate(1204, 476)">
+    <rect width="548" height="396" rx="18" fill="#0E0E11" stroke="#27272A" stroke-width="1.5" />
+    <text x="24" y="32" fill="#71717A" class="mono" font-size="10" letter-spacing="1.8">06 / TYPOGRAPHIC ARCHITECTURE</text>
+
+    <text x="32" y="128" fill="#F4F4F5" class="sans" font-size="68" font-weight="650" letter-spacing="-2">Aa</text>
+    <text x="148" y="98" fill="#F4F4F5" class="sans" font-size="22" font-weight="600">Geist Sans</text>
+    <text x="148" y="124" fill="#71717A" class="mono" font-size="11">UI CHROME / HEADLINES / -0.03EM</text>
+
+    <line x1="32" y1="168" x2="516" y2="168" stroke="#27272A" stroke-width="1" />
+
+    <text x="32" y="236" fill="#2DD4BF" class="mono" font-size="28" font-weight="600">Geist Mono</text>
+    <text x="32" y="274" fill="#D4D4D8" class="mono" font-size="20" letter-spacing="2">0123456789 · NULL · PK</text>
+    <text x="32" y="312" fill="#71717A" class="mono" font-size="12">SELECT * FROM "accounts" WHERE id = 42;</text>
+
+    <text x="32" y="372" fill="#52525B" class="mono" font-size="10">TABULAR-NUMS MANDATORY ON ALL DATA GRIDS</text>
+  </g>
+
+  <!-- ========================================================= -->
+  <!-- ROW 3, COL 1: 07 / APP ICON HARDWARE                      -->
+  <!-- ========================================================= -->
+  <g transform="translate(48, 900)">
+    <rect width="548" height="396" rx="18" fill="#0E0E11" stroke="#27272A" stroke-width="1.5" />
+    <text x="24" y="32" fill="#71717A" class="mono" font-size="10" letter-spacing="1.8">07 / DESKTOP APPLICATION ICON</text>
+
+    <!-- Double-Bezel Icon Pedestal -->
+    <g transform="translate(178, 76)">
+      <rect x="-12" y="-12" width="216" height="216" rx="52" fill="#141418" stroke="#27272A" stroke-width="1.5" />
+      <rect x="0" y="0" width="192" height="192" rx="44" fill="#18181F" stroke="#3F3F46" stroke-width="3" />
+      <rect x="8" y="8" width="176" height="176" rx="37" stroke="#2DD4BF" stroke-opacity="0.16" stroke-width="1.5" />
+
+      <rect x="38" y="38" width="116" height="26" rx="7" fill="#F4F4F5" />
+      <rect x="47" y="47" width="17" height="8" rx="2.5" fill="#141418" />
+      <circle cx="140" cy="51" r="4" fill="#0D9488" />
+
+      <rect x="55" y="73" width="27" height="81" rx="7" fill="#F4F4F5" />
+      <rect x="91" y="73" width="63" height="37" rx="8.5" fill="#2DD4BF" />
+      <rect x="102" y="88" width="32" height="7.5" rx="2.5" fill="#042F2E" />
+
+      <rect x="91" y="119" width="43" height="35" rx="7" fill="#1C1C24" stroke="#2DD4BF" stroke-opacity="0.55" stroke-width="2.5" />
+      <circle cx="112.5" cy="136.5" r="4.5" fill="#2DD4BF" />
+    </g>
+
+    <text x="24" y="372" fill="#52525B" class="mono" font-size="10">MACOS .ICNS / WINDOWS .ICO / LINUX .PNG</text>
+  </g>
+
+  <!-- ========================================================= -->
+  <!-- ROW 3, COL 2: 08 / RELATIONAL GRAPH                       -->
+  <!-- ========================================================= -->
+  <g transform="translate(626, 900)">
+    <rect width="548" height="396" rx="18" fill="#0E0E11" stroke="#27272A" stroke-width="1.5" />
+    <text x="24" y="32" fill="#71717A" class="mono" font-size="10" letter-spacing="1.8">08 / SCHEMA INTROSPECTION</text>
+
+    <!-- ER Nodes -->
+    <g transform="translate(36, 84)">
+      <!-- Node 1 -->
+      <rect x="0" y="16" width="184" height="132" rx="10" fill="#141418" stroke="#3F3F46" stroke-width="1.5" />
+      <rect x="0" y="16" width="184" height="32" rx="10" fill="#1C1C22" />
+      <text x="14" y="36" fill="#F4F4F5" class="mono" font-size="11" font-weight="600">users</text>
+      <text x="14" y="68" fill="#FBBF24" class="mono" font-size="10">PK  id          INT8</text>
+      <text x="14" y="92" fill="#D4D4D8" class="mono" font-size="10">    email       TEXT</text>
+      <text x="14" y="116" fill="#D4D4D8" class="mono" font-size="10">    created_at  TIMESTAMPTZ</text>
+
+      <!-- Bezier Curve -->
+      <path d="M 184 64 C 238 64, 238 148, 292 148" stroke="#2DD4BF" stroke-width="2" fill="none" />
+      <circle cx="184" cy="64" r="4" fill="#FBBF24" />
+      <circle cx="292" cy="148" r="4" fill="#2DD4BF" />
+
+      <!-- Node 2 -->
+      <rect x="292" y="68" width="184" height="132" rx="10" fill="#141418" stroke="#2DD4BF" stroke-opacity="0.6" stroke-width="1.5" />
+      <rect x="292" y="68" width="184" height="32" rx="10" fill="#1C1C22" />
+      <text x="306" y="88" fill="#F4F4F5" class="mono" font-size="11" font-weight="600">invoices</text>
+      <text x="306" y="120" fill="#FBBF24" class="mono" font-size="10">PK  id          UUID</text>
+      <text x="306" y="148" fill="#2DD4BF" class="mono" font-size="10">FK  user_id     INT8</text>
+      <text x="306" y="174" fill="#D4D4D8" class="mono" font-size="10">    total_cents INT8</text>
+    </g>
+
+    <text x="24" y="372" fill="#52525B" class="mono" font-size="10">VISUAL FOREIGN-KEY GRAPH &amp; DDL BUILDER</text>
+  </g>
+
+  <!-- ========================================================= -->
+  <!-- ROW 3, COL 3: 09 / SYSTEM TELEMETRY                       -->
+  <!-- ========================================================= -->
+  <g transform="translate(1204, 900)">
+    <rect width="548" height="396" rx="18" fill="#0E0E11" stroke="#27272A" stroke-width="1.5" />
+    <text x="24" y="32" fill="#71717A" class="mono" font-size="10" letter-spacing="1.8">09 / ATOMIC TRANSACTION STATES</text>
+
+    <g transform="translate(36, 78)">
+      <!-- Insert Chip -->
+      <rect x="0" y="0" width="476" height="54" rx="10" fill="#10B981" fill-opacity="0.12" stroke="#10B981" stroke-opacity="0.35" stroke-width="1.5" />
+      <text x="20" y="32" fill="#34D399" class="mono" font-size="13" font-weight="600">+ INSERT INTO "employees" VALUES (104, 'Ayu Pratama')</text>
+
+      <!-- Update Chip -->
+      <rect x="0" y="70" width="476" height="54" rx="10" fill="#F59E0B" fill-opacity="0.12" stroke="#F59E0B" stroke-opacity="0.35" stroke-width="1.5" />
+      <text x="20" y="102" fill="#FBBF24" class="mono" font-size="13" font-weight="600">~ UPDATE "employees" SET salary = 9200 WHERE id = 42</text>
+
+      <!-- Delete Chip -->
+      <rect x="0" y="140" width="476" height="54" rx="10" fill="#F43F5E" fill-opacity="0.12" stroke="#F43F5E" stroke-opacity="0.35" stroke-width="1.5" />
+      <text x="20" y="172" fill="#FB7185" class="mono" font-size="13" font-weight="600">- DELETE FROM "employees" WHERE id = 7</text>
+
+      <!-- Commit Action Bar -->
+      <rect x="0" y="214" width="476" height="48" rx="10" fill="#141418" stroke="#3F3F46" stroke-width="1.5" />
+      <circle cx="22" cy="238" r="4" fill="#FBBF24" />
+      <text x="36" y="242" fill="#F4F4F5" class="sans" font-size="12" font-weight="600">3 pending changes</text>
+      <rect x="348" y="224" width="116" height="28" rx="6" fill="#0D9488" />
+      <text x="406" y="242" fill="#FFFFFF" class="mono" font-size="11" font-weight="600" text-anchor="middle">Commit (⌘S)</text>
+    </g>
+
+    <text x="24" y="372" fill="#52525B" class="mono" font-size="10">STAGED DIFF BUFFER / ROLLBACK ON ERROR</text>
+  </g>
+</svg>

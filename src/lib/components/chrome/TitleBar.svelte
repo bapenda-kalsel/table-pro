@@ -3,6 +3,7 @@
   import { theme } from '$lib/stores/theme.svelte';
   import { checkForUpdates } from '$lib/stores/updater';
   import { getLocale, locales, setLocale, t } from '$lib/i18n/i18n.svelte';
+  import Logo from '$lib/components/chrome/Logo.svelte';
   import {
     Database,
     Search,
@@ -34,9 +35,7 @@
   <!-- Left: App brand & active connection -->
   <div class="flex items-center gap-3">
     <div class="flex items-center gap-2 font-semibold text-fg tracking-tight">
-      <div class="w-5 h-5 rounded-md bg-accent-soft border border-accent-edge flex items-center justify-center text-[10px] text-accent font-mono font-bold">
-        T
-      </div>
+      <Logo class="w-5 h-5 shrink-0" />
       <span>TablePro</span>
     </div>
 
